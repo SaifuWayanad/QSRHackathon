@@ -309,6 +309,122 @@
             margin-bottom: 20px;
             opacity: 0.3;
         }
+        
+        /* Order Modal Styles - Redesigned */
+        .modal-large {
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .order-section {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .order-header {
+            border: 1px solid #e0e0e0;
+        }
+        
+        .order-items {
+            border: 1px solid #e0e0e0;
+        }
+        
+        .section-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .order-details-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
+        .order-item-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .order-items-table {
+            overflow-x: auto;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .order-items-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .order-items-table thead tr {
+            background: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .order-items-table th {
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .order-items-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .order-items-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .order-summary {
+            background: #f0f2ff;
+            padding: 20px;
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 3px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 768px) {
+            .modal-large {
+                width: 98%;
+            }
+            
+            .order-details-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .order-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .order-item-controls {
+                flex-direction: column;
+            }
+            
+            .order-item-controls select,
+            .order-item-controls input {
+                width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -358,6 +474,22 @@
                 <li class="nav-item" data-page="orders">
                     <span class="nav-icon">🛒</span>
                     <span>Orders</span>
+                </li>
+                <li class="nav-item" data-page="appliances">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Kitchen Appliances</span>
+                </li>
+                <li class="nav-item" data-page="iot-devices">
+                    <span class="nav-icon">📡</span>
+                    <span>IoT Devices</span>
+                </li>
+                <li class="nav-item" data-page="staff">
+                    <span class="nav-icon">👥</span>
+                    <span>Staff Management</span>
+                </li>
+                <li class="nav-item" data-page="staff-kitchen">
+                    <span class="nav-icon">🔄</span>
+                    <span>Staff Assignments</span>
                 </li>
             </ul>
         </aside>
@@ -752,6 +884,328 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Kitchen Appliances Section -->
+            <div class="page-section" id="appliances">
+                <div class="section-header">
+                    <h2>Kitchen Appliances Management</h2>
+                    <p>Manage kitchen appliances and assign them to kitchen stations</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div class="action-bar" style="margin-bottom: 0;">
+                        <h3 style="color: #333; font-size: 18px;">Appliances</h3>
+                        <button class="btn btn-primary" onclick="openApplianceModal()">
+                            + Add Appliance
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="appliances-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Model</th>
+                                    <th>Serial Number</th>
+                                    <th>Status</th>
+                                    <th>Last Maintenance</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appliances-tbody">
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <p>No appliances yet. Add your first appliance!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 40px;">
+                    <h3 style="color: #333; font-size: 20px; margin-bottom: 20px;">Kitchen Appliance Assignments</h3>
+                    <div class="action-bar">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label style="color: #333; font-weight: 600;">Select Kitchen:</label>
+                            <select id="appliance-kitchen-filter" onchange="loadKitchenAppliances()" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                                <option value="">All Kitchens</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="openKitchenApplianceModal()">
+                            + Assign Appliance to Kitchen
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="kitchen-appliances-table">
+                            <thead>
+                                <tr>
+                                    <th>Kitchen</th>
+                                    <th>Appliance Name</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Assigned Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kitchen-appliances-tbody">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <p>No appliance assignments yet. Assign your first appliance to a kitchen!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- IoT Devices Section -->
+            <div class="page-section" id="iot-devices">
+                <div class="section-header">
+                    <h2>IoT Devices Management</h2>
+                    <p>Manage and monitor IoT devices throughout the restaurant</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="color: #333; font-weight: 600;">Filter by Kitchen:</label>
+                        <select id="iot-kitchen-filter" onchange="loadIoTDevices()" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                            <option value="">All Kitchens</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="openIoTDeviceModal()">
+                        + Add IoT Device
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="iot-devices-table">
+                            <thead>
+                                <tr>
+                                    <th>Device Name</th>
+                                    <th>Type</th>
+                                    <th>Device ID</th>
+                                    <th>Kitchen</th>
+                                    <th>Location</th>
+                                    <th>Battery</th>
+                                    <th>Signal</th>
+                                    <th>Status</th>
+                                    <th>Last Sync</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="iot-devices-tbody">
+                                <tr>
+                                    <td colspan="10">
+                                        <div class="empty-state">
+                                            <p>No IoT devices yet. Add your first device!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">Device Statistics</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Devices</p>
+                            <h4 style="color: #667eea; font-size: 24px;" id="total-iot-devices">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Devices</p>
+                            <h4 style="color: #28a745; font-size: 24px;" id="active-iot-devices">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Low Battery</p>
+                            <h4 style="color: #ffc107; font-size: 24px;" id="low-battery-devices">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Poor Signal</p>
+                            <h4 style="color: #dc3545; font-size: 24px;" id="poor-signal-devices">0</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Staff Management Section -->
+            <div class="page-section" id="staff">
+                <div class="section-header">
+                    <h2>Staff Management</h2>
+                    <p>Manage and track restaurant staff members</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="color: #333; font-weight: 600;">Filter by Department:</label>
+                        <select id="staff-department-filter" onchange="loadStaff()" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                            <option value="">All Departments</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="openStaffModal()">
+                        + Add Staff Member
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="staff-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Department</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Kitchen</th>
+                                    <th>Hire Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-tbody">
+                                <tr>
+                                    <td colspan="9">
+                                        <div class="empty-state">
+                                            <p>No staff members yet. Add your first staff member!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">Staff Statistics</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Staff</p>
+                            <h4 style="color: #667eea; font-size: 24px;" id="total-staff">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Staff</p>
+                            <h4 style="color: #28a745; font-size: 24px;" id="active-staff">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Kitchen Staff</p>
+                            <h4 style="color: #ffc107; font-size: 24px;" id="kitchen-staff">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Front of House</p>
+                            <h4 style="color: #17a2b8; font-size: 24px;" id="foh-staff">0</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Staff-Kitchen Mapping Section -->
+            <div class="page-section" id="staff-kitchen">
+                <div class="section-header">
+                    <h2>👥 Staff-Kitchen Assignments</h2>
+                    <p>Manage staff assignments to kitchens with manager approval workflow</p>
+                </div>
+                
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="openStaffKitchenRequestModal()">
+                        + Request Kitchen Assignment
+                    </button>
+                </div>
+                
+                <!-- Pending Requests Section -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">⏳ Pending Approval Requests</h3>
+                    <div class="table-container">
+                        <table id="pending-requests-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Name</th>
+                                    <th>Current Kitchen</th>
+                                    <th>Requested Kitchen</th>
+                                    <th>Position</th>
+                                    <th>Reason</th>
+                                    <th>Start Date</th>
+                                    <th>Requested</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-requests-tbody">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <p>No pending requests</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Active Assignments Section -->
+                <div class="card">
+                    <h3 style="margin-bottom: 15px; color: #333;">✅ Active Kitchen Assignments</h3>
+                    <div class="table-container">
+                        <table id="assignments-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Name</th>
+                                    <th>Kitchen</th>
+                                    <th>Position</th>
+                                    <th>Assigned Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignments-tbody">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <p>No active assignments</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">📊 Assignment Statistics</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Pending Requests</p>
+                            <h4 style="color: #ffc107; font-size: 24px;" id="pending-requests-count">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Assignments</p>
+                            <h4 style="color: #28a745; font-size: 24px;" id="active-assignments-count">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Approved This Month</p>
+                            <h4 style="color: #667eea; font-size: 24px;" id="approved-count">0</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1103,78 +1557,748 @@
         </div>
     </div>
     
-    <!-- Order Modal -->
+    <!-- Order Modal - Redesigned -->
     <div class="modal" id="orderModal">
-        <div class="modal-content">
+        <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>Create New Order</h3>
+                <h3>🛒 Create New Order</h3>
                 <button class="close-btn" onclick="closeOrderModal()">&times;</button>
             </div>
-            <form id="orderForm" onsubmit="saveOrder(event)">
+            
+            <!-- General Details Section -->
+            <div class="order-section order-header">
+                <div class="section-title" style="background: #667eea; color: white; padding: 12px; margin: -15px -15px 15px -15px; border-radius: 4px 4px 0 0; font-weight: 600;">📋 Order General Details</div>
+                <form id="orderForm" onsubmit="saveOrder(event)">
+                    <div class="order-details-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>Order Number *</label>
+                            <input type="text" id="orderNumber" required placeholder="ORD-001" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Table *</label>
+                            <select id="orderTable" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select Table</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Order Type *</label>
+                            <select id="orderType" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select Order Type</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="orderCustomer" placeholder="Customer name" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="orderStatus" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="preparing">Preparing</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select id="orderPriority" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Special Notes/Instructions</label>
+                        <textarea id="orderNotes" placeholder="Allergies, special requests, preparation notes..." style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Ordered Food Items Section -->
+            <div class="order-section order-items" style="margin-top: 20px;">
+                <div class="section-title" style="background: #667eea; color: white; padding: 12px; margin: -15px -15px 15px -15px; border-radius: 4px 4px 0 0; font-weight: 600;">🍽️ Ordered Food Items</div>
+                
+                <div class="order-item-controls" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <select id="foodItemSelect" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">+ Select Food Item to Add</option>
+                    </select>
+                    <input type="number" id="foodItemQty" min="1" value="1" placeholder="Qty" style="width: 70px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="foodItemNotes" placeholder="Special notes" style="flex: 0.8; min-width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button type="button" onclick="addFoodItemToOrder()" class="btn btn-primary" style="padding: 8px 16px; white-space: nowrap;">+ Add Item</button>
+                </div>
+
+                <div class="order-items-table" style="overflow-x: auto; margin-bottom: 15px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                                <th style="width: 5%; padding: 10px; text-align: left;">#</th>
+                                <th style="width: 25%; padding: 10px; text-align: left;">Food Item</th>
+                                <th style="width: 10%; padding: 10px; text-align: left;">Category</th>
+                                <th style="width: 10%; padding: 10px; text-align: right;">Unit Price</th>
+                                <th style="width: 8%; padding: 10px; text-align: center;">Qty</th>
+                                <th style="width: 12%; padding: 10px; text-align: right;">Total Price</th>
+                                <th style="width: 20%; padding: 10px; text-align: left;">Notes</th>
+                                <th style="width: 10%; padding: 10px; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderItemsBody">
+                            <tr id="emptyRow" style="border-bottom: 1px solid #eee;">
+                                <td colspan="8" style="text-align: center; color: #999; padding: 40px; font-size: 14px;">
+                                    📭 No items added yet. Select food items from the dropdown above.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="order-summary" style="background: #f0f2ff; padding: 20px; border-radius: 4px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; border: 2px solid #667eea;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 13px; color: #666; font-weight: 600; margin-bottom: 8px;">Total Items</div>
+                        <div style="font-size: 28px; font-weight: bold; color: #667eea;" id="totalItems">0</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 13px; color: #666; font-weight: 600; margin-bottom: 8px;">Subtotal</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #333;">$<span id="subtotal">0.00</span></div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 13px; color: #666; font-weight: 600; margin-bottom: 8px;">Tax (10%)</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #f59e0b;">$<span id="taxAmount">0.00</span></div>
+                    </div>
+                    <div style="text-align: center; background: #667eea; color: white; padding: 15px; border-radius: 4px;">
+                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Total Amount</div>
+                        <div style="font-size: 28px; font-weight: bold;">$<span id="totalAmount">0.00</span></div>
+                    </div>
+                </div>
+
+                <input type="hidden" id="orderTotalAmount">
+                <input type="hidden" id="orderItemsCount">
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px; padding-top: 20px; border-top: 2px solid #eee;">
+                <button type="button" class="btn btn-secondary" onclick="closeOrderModal()" style="padding: 10px 20px;">Cancel</button>
+                <button type="button" class="btn btn-outline" onclick="resetOrderForm()" style="padding: 10px 20px;">🔄 Reset</button>
+                <button type="submit" form="orderForm" class="btn btn-primary" style="padding: 10px 25px; font-weight: 600;">✓ Create Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order View & Status Change Modal -->
+    <div class="modal" id="orderViewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📋 Order Details</h3>
+                <button class="close-btn" onclick="closeOrderViewModal()">&times;</button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                <!-- Order General Information -->
+                <div>
+                    <h4 style="color: #667eea; margin-bottom: 15px; font-size: 14px; font-weight: 600; text-transform: uppercase;">Order Information</h4>
+                    <div style="display: grid; gap: 12px;">
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Order ID</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewOrderId">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Table Number</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewTableNumber">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Table Area</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewTableArea">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Customer Name</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewCustomerName">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Details -->
+                <div>
+                    <h4 style="color: #667eea; margin-bottom: 15px; font-size: 14px; font-weight: 600; text-transform: uppercase;">Order Details</h4>
+                    <div style="display: grid; gap: 12px;">
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Order Type</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewOrderType">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Priority</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewPriority">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Created At</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewCreatedAt">-</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 3px;">Special Notes</p>
+                            <p style="font-weight: 600; font-size: 14px;" id="viewSpecialNotes">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+            <!-- Order Items Table -->
+            <div style="margin-bottom: 25px;">
+                <h4 style="color: #667eea; margin-bottom: 15px; font-size: 14px; font-weight: 600; text-transform: uppercase;">🍽️ Order Items</h4>
+                <div class="table-container">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #eee;">
+                                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #333;">Item Name</th>
+                                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: #333;">Quantity</th>
+                                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333;">Unit Price</th>
+                                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="viewOrderItemsBody">
+                            <tr>
+                                <td colspan="4" style="padding: 20px; text-align: center; color: #999;">No items</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+            <!-- Order Summary -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 25px;">
+                <!-- Summary Stats -->
+                <div>
+                    <h4 style="color: #667eea; margin-bottom: 15px; font-size: 14px; font-weight: 600; text-transform: uppercase;">Summary</h4>
+                    <div style="display: grid; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+                            <span style="color: #666; font-size: 14px;">Total Items:</span>
+                            <span style="font-weight: 600; font-size: 14px;" id="viewItemCount">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+                            <span style="color: #666; font-size: 14px;">Subtotal:</span>
+                            <span style="font-weight: 600; font-size: 14px;" id="viewSubtotal">$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+                            <span style="color: #666; font-size: 14px;">Tax:</span>
+                            <span style="font-weight: 600; font-size: 14px;" id="viewTax">$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                            <span style="color: #333; font-size: 15px; font-weight: 600;">Total Amount:</span>
+                            <span style="font-weight: 700; font-size: 18px; color: #667eea;" id="viewTotalAmount">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Change Section -->
+                <div>
+                    <h4 style="color: #667eea; margin-bottom: 15px; font-size: 14px; font-weight: 600; text-transform: uppercase;">Status Management</h4>
+                    <div style="display: grid; gap: 12px;">
+                        <div>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 8px;">Current Status</p>
+                            <p style="font-weight: 600; font-size: 14px; padding: 8px 12px; background: #f8f9fa; border-radius: 4px;" id="viewCurrentStatus">-</p>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">Change Status To *</label>
+                            <select id="orderStatusSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                                <option value="">Select New Status</option>
+                                <option value="pending">⏳ Pending</option>
+                                <option value="confirmed">✓ Confirmed</option>
+                                <option value="preparing">👨‍🍳 Preparing</option>
+                                <option value="ready">🍽️ Ready</option>
+                                <option value="served">✓ Served</option>
+                                <option value="completed">✅ Completed</option>
+                                <option value="cancelled">❌ Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeOrderViewModal()" style="padding: 10px 20px;">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateOrderStatus()" style="padding: 10px 25px; font-weight: 600;">✓ Update Status</button>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Appliance Modal -->
+    <div class="modal" id="applianceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Kitchen Appliance</h3>
+                <button class="close-btn" onclick="closeApplianceModal()">&times;</button>
+            </div>
+            <form id="applianceForm" onsubmit="saveAppliance(event)">
+                <div class="form-group">
+                    <label>Appliance Name *</label>
+                    <input type="text" id="applianceName" required placeholder="e.g., Commercial Oven">
+                </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Order Number *</label>
-                        <input type="text" id="orderNumber" required placeholder="e.g., ORD-001">
+                        <label>Type *</label>
+                        <select id="applianceType" required onchange="updateApplianceTypeDescription()">
+                            <option value="">Select Type</option>
+                            <option value="Oven">Oven</option>
+                            <option value="Stove/Cooktop">Stove/Cooktop</option>
+                            <option value="Grill">Grill</option>
+                            <option value="Fryer">Fryer</option>
+                            <option value="Refrigerator">Refrigerator</option>
+                            <option value="Freezer">Freezer</option>
+                            <option value="Dishwasher">Dishwasher</option>
+                            <option value="Microwave">Microwave</option>
+                            <option value="Steamer">Steamer</option>
+                            <option value="Food Processor">Food Processor</option>
+                            <option value="Mixer">Mixer</option>
+                            <option value="Blender">Blender</option>
+                            <option value="Slicer">Slicer</option>
+                            <option value="Ventilation Hood">Ventilation Hood</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label>Table *</label>
-                        <select id="orderTable" required>
-                            <option value="">Select Table</option>
-                        </select>
+                        <label>Model</label>
+                        <input type="text" id="applianceModel" placeholder="e.g., CO-2000X">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Order Type *</label>
-                        <select id="orderType" required>
-                            <option value="">Select Order Type</option>
-                        </select>
+                        <label>Serial Number</label>
+                        <input type="text" id="applianceSerial" placeholder="Serial/ID number">
                     </div>
                     <div class="form-group">
-                        <label>Customer Name</label>
-                        <input type="text" id="orderCustomer" placeholder="Customer name">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Number of Items *</label>
-                        <input type="number" id="orderItemsCount" required min="1" placeholder="e.g., 5">
-                    </div>
-                    <div class="form-group">
-                        <label>Total Amount ($) *</label>
-                        <input type="number" id="orderTotalAmount" required step="0.01" placeholder="0.00">
+                        <label>Purchase Date</label>
+                        <input type="date" id="appliancePurchaseDate">
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="applianceDescription" placeholder="Description of this appliance"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Last Maintenance Date</label>
+                    <input type="date" id="applianceMaintenanceDate">
+                </div>
+                <div class="form-group">
                     <label>Status</label>
-                    <select id="orderStatus">
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="preparing">Preparing</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
+                    <select id="applianceStatus">
+                        <option value="active">Active</option>
+                        <option value="maintenance">Under Maintenance</option>
+                        <option value="inactive">Inactive</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Notes</label>
-                    <textarea id="orderNotes" placeholder="Special requests or notes"></textarea>
+                    <textarea id="applianceNotes" placeholder="Any special notes about this appliance"></textarea>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
-                    <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Order</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeApplianceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Appliance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Kitchen Appliance Assignment Modal -->
+    <div class="modal" id="kitchenApplianceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Assign Appliance to Kitchen</h3>
+                <button class="close-btn" onclick="closeKitchenApplianceModal()">&times;</button>
+            </div>
+            <form id="kitchenApplianceForm" onsubmit="saveKitchenAppliance(event)">
+                <div class="form-group">
+                    <label>Kitchen *</label>
+                    <select id="kaKitchen" required onchange="loadKitchenAppliancesForKitchen()">
+                        <option value="">Select Kitchen</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Appliance *</label>
+                    <select id="kaAppliance" required>
+                        <option value="">Select Appliance</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" id="kaQuantity" value="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <input type="text" id="kaLocation" placeholder="e.g., Main Station, Station 1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="kaStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeKitchenApplianceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign Appliance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- IoT Device Modal -->
+    <div class="modal" id="iotDeviceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add IoT Device</h3>
+                <button class="close-btn" onclick="closeIoTDeviceModal()">&times;</button>
+            </div>
+            <form id="iotDeviceForm" onsubmit="saveIoTDevice(event)">
+                <div class="form-group">
+                    <label>Device Name *</label>
+                    <input type="text" id="iotDeviceName" required placeholder="e.g., Temperature Sensor - Kitchen A">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Device Type *</label>
+                        <select id="iotDeviceType" required>
+                            <option value="">Select Type</option>
+                            <option value="Temperature Sensor">Temperature Sensor</option>
+                            <option value="Humidity Sensor">Humidity Sensor</option>
+                            <option value="Motion Detector">Motion Detector</option>
+                            <option value="Door Sensor">Door Sensor</option>
+                            <option value="Smoke Detector">Smoke Detector</option>
+                            <option value="Pressure Gauge">Pressure Gauge</option>
+                            <option value="Weight Scale">Weight Scale</option>
+                            <option value="RFID Reader">RFID Reader</option>
+                            <option value="Camera">Camera</option>
+                            <option value="Smart Display">Smart Display</option>
+                            <option value="Beacon">Beacon</option>
+                            <option value="Gas Detector">Gas Detector</option>
+                            <option value="Water Flow Meter">Water Flow Meter</option>
+                            <option value="Energy Meter">Energy Meter</option>
+                            <option value="Light Sensor">Light Sensor</option>
+                            <option value="Sound Sensor">Sound Sensor</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Device ID</label>
+                        <input type="text" id="iotDeviceId" placeholder="Unique device ID/MAC">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Kitchen</label>
+                        <select id="iotKitchen">
+                            <option value="">Select Kitchen</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <input type="text" id="iotLocation" placeholder="e.g., Main Storage, Station 1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="iotDescription" placeholder="Device description and purpose"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IP Address</label>
+                        <input type="text" id="iotIpAddress" placeholder="192.168.1.100">
+                    </div>
+                    <div class="form-group">
+                        <label>MAC Address</label>
+                        <input type="text" id="iotMacAddress" placeholder="00:1A:2B:3C:4D:5E">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Firmware Version</label>
+                        <input type="text" id="iotFirmware" placeholder="e.g., v1.2.3">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="iotStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="iotNotes" placeholder="Any special notes about this device"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeIoTDeviceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Staff Modal -->
+    <div class="modal" id="staffModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Staff Member</h3>
+                <button class="close-btn" onclick="closeStaffModal()">&times;</button>
+            </div>
+            <form id="staffForm" onsubmit="saveStaff(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="staffName" required placeholder="e.g., John Smith">
+                    </div>
+                    <div class="form-group">
+                        <label>Position *</label>
+                        <select id="staffPosition" required>
+                            <option value="">Select Position</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Department *</label>
+                        <select id="staffDepartment" required>
+                            <option value="">Select Department</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kitchen Assignment</label>
+                        <select id="staffKitchen">
+                            <option value="">No Kitchen Assignment</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="staffEmail" placeholder="john@restaurant.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" id="staffPhone" placeholder="(555) 123-4567">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hire Date</label>
+                        <input type="date" id="staffHireDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" id="staffDOB">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="staffAddress" placeholder="Street address">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" id="staffCity" placeholder="City">
+                    </div>
+                    <div class="form-group">
+                        <label>State</label>
+                        <input type="text" id="staffState" placeholder="State">
+                    </div>
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input type="text" id="staffPostalCode" placeholder="Zip Code">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Emergency Contact Name</label>
+                        <input type="text" id="staffEmergencyName" placeholder="Contact name">
+                    </div>
+                    <div class="form-group">
+                        <label>Emergency Contact Phone</label>
+                        <input type="tel" id="staffEmergencyPhone" placeholder="(555) 999-8888">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Salary Type</label>
+                        <select id="staffSalaryType">
+                            <option value="">Select Type</option>
+                            <option value="Hourly">Hourly</option>
+                            <option value="Salary">Salary</option>
+                            <option value="Commission">Commission</option>
+                            <option value="Intern">Intern</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="staffStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="on-leave">On Leave</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="staffNotes" placeholder="Additional notes about staff member"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeStaffModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Staff Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Staff-Kitchen Request Modal -->
+    <div class="modal" id="staffKitchenRequestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Request Kitchen Assignment</h3>
+                <button class="close-btn" onclick="closeStaffKitchenRequestModal()">&times;</button>
+            </div>
+            <form id="staffKitchenForm" onsubmit="submitStaffKitchenRequest(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Staff Member *</label>
+                        <select id="requestStaffId" required>
+                            <option value="">Select Staff Member</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Kitchen *</label>
+                        <select id="requestKitchenId" required>
+                            <option value="">Select Kitchen</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Position *</label>
+                        <input type="text" id="requestPosition" required placeholder="e.g., Head Chef">
+                    </div>
+                    <div class="form-group">
+                        <label>Requested Start Date *</label>
+                        <input type="date" id="requestStartDate" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Request Reason *</label>
+                    <textarea id="requestReason" required placeholder="Reason for the assignment request..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeStaffKitchenRequestModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Manager Approval Modal -->
+    <div class="modal" id="approvalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Review Assignment Request</h3>
+                <button class="close-btn" onclick="closeApprovalModal()">&times;</button>
+            </div>
+            <div id="requestDetails" style="margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Staff Member</p>
+                        <p style="font-weight: 600; font-size: 14px;" id="detailStaffName">-</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Requested Kitchen</p>
+                        <p style="font-weight: 600; font-size: 14px;" id="detailKitchenName">-</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Position</p>
+                        <p style="font-weight: 600; font-size: 14px;" id="detailPosition">-</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Start Date</p>
+                        <p style="font-weight: 600; font-size: 14px;" id="detailStartDate">-</p>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <p style="font-size: 12px; color: #666; margin-bottom: 5px;">Request Reason</p>
+                        <p style="font-weight: 600; font-size: 14px;" id="detailReason">-</p>
+                    </div>
+                </div>
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+            </div>
+            
+            <form id="approvalForm" onsubmit="submitApprovalDecision(event)">
+                <div class="form-group">
+                    <label>Approval Notes / Rejection Reason *</label>
+                    <textarea id="approvalNotes" required placeholder="Enter approval notes or rejection reason..."></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-danger" onclick="rejectRequest()">Reject Request</button>
+                    <button type="submit" class="btn btn-success">Approve Request</button>
                 </div>
             </form>
         </div>
     </div>
     
     <script>
-        // Set today's date as default
+        // Set today's date as default and setup navigation
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('production-date').value = today;
 
             document.getElementById('productionDateInput').value = today;
+            document.getElementById('requestStartDate').value = today;
             
+            // Setup Navigation Event Listeners
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+                    
+                    this.classList.add('active');
+                    const page = this.getAttribute('data-page');
+                    const pageElement = document.getElementById(page);
+                    if (pageElement) {
+                        pageElement.classList.add('active');
+                    }
+                    
+                    // Save the current page to localStorage
+                    localStorage.setItem('activePage', page);
+                    
+                    // Load data for the specific page
+                    if (page === 'daily-production') {
+                        loadDailyProduction();
+                    } else if (page === 'areas') {
+                        loadAreas();
+                    } else if (page === 'tables') {
+                        loadTables();
+                    } else if (page === 'order-types') {
+                        loadOrderTypes();
+                    } else if (page === 'orders') {
+                        loadOrders();
+                    } else if (page === 'appliances') {
+                        loadAppliances();
+                        loadKitchenAppliances();
+                        loadKitchensForAssignment();
+                    } else if (page === 'iot-devices') {
+                        loadIoTDevices();
+                        loadKitchensForIoTFilter();
+                    } else if (page === 'staff') {
+                        loadStaff();
+                        loadDepartmentsForFilter();
+                    }
+                });
+            });
+            
+            // Load all initial data
             loadKitchens();
             loadCategories();
             loadFoodItems();
@@ -1183,6 +2307,13 @@
             loadTables();
             loadOrderTypes();
             loadOrders();
+            loadStaff();
+            loadAppliances();
+            loadKitchenAppliances();
+            loadIoTDevices();
+            loadPendingRequests();
+            loadStaffKitchenAssignments();
+            loadAssignmentStatistics();
             updateCounts();
             
             // Restore the last viewed page
@@ -1191,38 +2322,11 @@
             if (lastNav) {
                 lastNav.click();
             }
-        });
-        
-        // Navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
-                
-                this.classList.add('active');
-                const page = this.getAttribute('data-page');
-                document.getElementById(page).classList.add('active');
-                
-                // Save the current page to localStorage
-                localStorage.setItem('activePage', page);
-                
-                if (page === 'daily-production') {
-                    loadDailyProduction();
-                } else if (page === 'areas') {
-                    loadAreas();
-                } else if (page === 'tables') {
-                    loadTables();
-                } else if (page === 'order-types') {
-                    loadOrderTypes();
-                } else if (page === 'orders') {
-                    loadOrders();
-                }
+            
+            // Date change for production
+            document.getElementById('production-date').addEventListener('change', function() {
+                loadDailyProduction();
             });
-        });
-        
-        // Date change for production
-        document.getElementById('production-date').addEventListener('change', function() {
-            loadDailyProduction();
         });
         
         // Category Modal Functions
@@ -1682,24 +2786,11 @@
             }
         }
         
-        // Order Modal Functions
-        function openOrderModal() {
-            loadTableOptions();
-            loadOrderTypeOptions();
-            document.getElementById('orderModal').classList.add('active');
-        }
-        
-        function closeOrderModal() {
-            document.getElementById('orderModal').classList.remove('active');
-            document.getElementById('orderForm').reset();
-        }
-        
-        // Load Orders
+        // Load all orders
         function loadOrders() {
             fetch('/api/orders')
                 .then(res => res.json())
                 .then(data => {
-                    console.log('Orders data received:', data);
                     const tbody = document.getElementById('orders-tbody');
                     if (!data.orders || data.orders.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No orders yet. Create your first order!</p></div></td></tr>';
@@ -1708,36 +2799,318 @@
                     
                     tbody.innerHTML = data.orders.map(order => `
                         <tr>
-                            <td><strong>${order.order_number}</strong></td>
+                            <td>#${order.id.substring(0, 8)}</td>
                             <td>${order.table_number || '-'}</td>
-                            <td>${order.order_type_name || '-'}</td>
+                            <td>${order.order_type || '-'}</td>
                             <td>${order.customer_name || '-'}</td>
-                            <td>${order.items_count}</td>
-                            <td>$${order.total_amount.toFixed(2)}</td>
-                            <td><span class="badge badge-${order.status === 'completed' ? 'success' : order.status === 'cancelled' ? 'danger' : 'warning'}">${order.status}</span></td>
+                            <td>${order.items_count || 0}</td>
+                            <td>$${(order.total_amount || 0).toFixed(2)}</td>
+                            <td><span class="status-badge status-${order.status}">${order.status}</span></td>
                             <td>
-                                <button class="btn btn-danger btn-small" onclick="deleteOrder('${order.id}')">Delete</button>
+                                <button class="btn-icon" onclick="viewOrder('${order.id}')" title="View Details">👁️</button>
+                                <button class="btn-icon" onclick="deleteOrder('${order.id}')" title="Delete">🗑️</button>
                             </td>
                         </tr>
                     `).join('');
                 })
+                .catch(error => console.error('Error loading orders:', error));
+        }
+        
+// Order Modal Variables
+        let orderItems = [];
+        
+        // Open Order Modal
+        function openOrderModal() {
+            loadTableOptions();
+            loadOrderTypeOptions();
+            loadFoodItemsForOrder();
+            orderItems = [];
+            resetOrderForm();
+            document.getElementById('orderModal').classList.add('active');
+        }
+        
+        // Close Order Modal
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('active');
+            orderItems = [];
+        }
+        
+        // Open Order View Modal
+        function viewOrder(orderId) {
+            fetch(`/api/orders/${orderId}`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const order = data.order;
+                        
+                        // Populate general information
+                        document.getElementById('viewOrderId').textContent = `#${order.id.substring(0, 8)}`;
+                        document.getElementById('viewTableNumber').textContent = order.table_number || '-';
+                        document.getElementById('viewTableArea').textContent = order.table_area || '-';
+                        document.getElementById('viewCustomerName').textContent = order.customer_name || '-';
+                        
+                        // Populate order details
+                        document.getElementById('viewOrderType').textContent = order.order_type_name || '-';
+                        document.getElementById('viewPriority').textContent = order.priority || 'Normal';
+                        document.getElementById('viewCreatedAt').textContent = new Date(order.created_at).toLocaleString();
+                        document.getElementById('viewSpecialNotes').textContent = order.notes || '-';
+                        
+                        // Current status
+                        document.getElementById('viewCurrentStatus').textContent = getStatusBadge(order.status);
+                        document.getElementById('orderStatusSelect').value = order.status || 'pending';
+                        document.getElementById('orderStatusSelect').dataset.orderId = orderId;
+                        
+                        // Populate order items
+                        populateOrderItems(order.items || []);
+                        
+                        // Calculate and display summary
+                        const subtotal = (order.items || []).reduce((sum, item) => sum + (item.quantity * item.price), 0);
+                        const tax = subtotal * 0.1; // 10% tax
+                        const total = subtotal + tax;
+                        
+                        document.getElementById('viewItemCount').textContent = order.items_count || (order.items || []).length;
+                        document.getElementById('viewSubtotal').textContent = `$${subtotal.toFixed(2)}`;
+                        document.getElementById('viewTax').textContent = `$${tax.toFixed(2)}`;
+                        document.getElementById('viewTotalAmount').textContent = `$${total.toFixed(2)}`;
+                        
+                        // Open modal
+                        document.getElementById('orderViewModal').classList.add('active');
+                    } else {
+                        alert('Error: ' + (data.error || 'Failed to load order'));
+                    }
+                })
                 .catch(error => {
-                    console.error('Error loading orders:', error);
-                    const tbody = document.getElementById('orders-tbody');
-                    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Error loading orders</p></div></td></tr>';
+                    alert('Error loading order: ' + error);
+                    console.error('Full error:', error);
                 });
         }
         
-        // Save Order
+        // Close Order View Modal
+        function closeOrderViewModal() {
+            document.getElementById('orderViewModal').classList.remove('active');
+        }
+        
+        // Populate order items in view
+        function populateOrderItems(items) {
+            const tbody = document.getElementById('viewOrderItemsBody');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">No items</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = items.map(item => `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px; color: #333;">${item.name || item.food_name}</td>
+                    <td style="padding: 12px; text-align: center; color: #333;">${item.quantity}</td>
+                    <td style="padding: 12px; text-align: right; color: #333;">$${(item.price).toFixed(2)}</td>
+                    <td style="padding: 12px; text-align: right; color: #333; font-weight: 600;">$${(item.quantity * item.price).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Get status badge with emoji
+        function getStatusBadge(status) {
+            const statusMap = {
+                'pending': '⏳ Pending',
+                'confirmed': '✓ Confirmed',
+                'preparing': '👨‍🍳 Preparing',
+                'ready': '🍽️ Ready',
+                'served': '✓ Served',
+                'completed': '✅ Completed',
+                'cancelled': '❌ Cancelled'
+            };
+            return statusMap[status] || status;
+        }
+        
+        // Update order status
+        function updateOrderStatus() {
+            const statusSelect = document.getElementById('orderStatusSelect');
+            const newStatus = statusSelect.value;
+            const orderId = statusSelect.dataset.orderId;
+            
+            if (!newStatus) {
+                alert('Please select a new status');
+                return;
+            }
+            
+            fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✓ Order status updated successfully!');
+                    closeOrderViewModal();
+                    loadOrders();
+                } else {
+                    alert('Error: ' + (data.error || 'Could not update status'));
+                }
+            })
+            .catch(error => {
+                alert('Error updating order: ' + error);
+                console.error(error);
+            });
+        }
+        
+        // Load food items for dropdown
+        function loadFoodItemsForOrder() {
+            fetch('/api/food-items')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('foodItemSelect');
+                    select.innerHTML = '<option value="">+ Select Food Item to Add</option>';
+                    if (data.food_items && data.food_items.length > 0) {
+                        data.food_items.forEach(item => {
+                            select.innerHTML += `<option value="${item.id}" data-name="${item.name}" data-price="${item.price}" data-category="${item.category_name}">${item.name} - $${item.price}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading food items:', error));
+        }
+        
+        // Add food item to order
+        function addFoodItemToOrder() {
+            const select = document.getElementById('foodItemSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            const qty = parseInt(document.getElementById('foodItemQty').value);
+            const notes = document.getElementById('foodItemNotes').value;
+            
+            if (!select.value) {
+                alert('Please select a food item');
+                return;
+            }
+            
+            const itemId = select.value;
+            const itemName = selectedOption.getAttribute('data-name');
+            const itemPrice = parseFloat(selectedOption.getAttribute('data-price'));
+            const itemCategory = selectedOption.getAttribute('data-category');
+            
+            // Check if item already in order
+            const existingItem = orderItems.find(item => item.id === itemId);
+            if (existingItem) {
+                existingItem.qty += qty;
+                existingItem.notes = notes;
+            } else {
+                orderItems.push({
+                    id: itemId,
+                    name: itemName,
+                    price: itemPrice,
+                    category: itemCategory,
+                    qty: qty,
+                    notes: notes
+                });
+            }
+            
+            // Reset form
+            select.value = '';
+            document.getElementById('foodItemQty').value = '1';
+            document.getElementById('foodItemNotes').value = '';
+            
+            // Render table
+            renderOrderItemsTable();
+            updateOrderSummary();
+        }
+        
+        // Render order items table
+        function renderOrderItemsTable() {
+            const tbody = document.getElementById('orderItemsBody');
+            
+            if (orderItems.length === 0) {
+                tbody.innerHTML = '<tr id="emptyRow" style="border-bottom: 1px solid #eee;"><td colspan="8" style="text-align: center; color: #999; padding: 40px; font-size: 14px;">📭 No items added yet. Select food items from the dropdown above.</td></tr>';
+                return;
+            }
+            
+            const rows = orderItems.map((item, index) => `
+                <tr style="border-bottom: 1px solid #eee; hover: background #f9f9f9;">
+                    <td style="padding: 10px; color: #666;">${index + 1}</td>
+                    <td style="padding: 10px; font-weight: 500;">${item.name}</td>
+                    <td style="padding: 10px; color: #667eea;">${item.category}</td>
+                    <td style="padding: 10px; text-align: right;">$${item.price.toFixed(2)}</td>
+                    <td style="padding: 10px; text-align: center;"><input type="number" min="1" value="${item.qty}" onchange="updateItemQty(${index}, this.value)" style="width: 50px; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 3px;"></td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600;">$${(item.price * item.qty).toFixed(2)}</td>
+                    <td style="padding: 10px; font-size: 12px; color: #666;">${item.notes || '-'}</td>
+                    <td style="padding: 10px; text-align: center;"><button type="button" onclick="removeOrderItem(${index})" class="btn btn-sm" style="background: #ff6b6b; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button></td>
+                </tr>
+            `).join('');
+            
+            tbody.innerHTML = rows;
+        }
+        
+        // Update item quantity
+        function updateItemQty(index, qty) {
+            orderItems[index].qty = parseInt(qty);
+            updateOrderSummary();
+        }
+        
+        // Remove order item
+        function removeOrderItem(index) {
+            orderItems.splice(index, 1);
+            renderOrderItemsTable();
+            updateOrderSummary();
+        }
+        
+        // Update order summary
+        function updateOrderSummary() {
+            const totalItems = orderItems.reduce((sum, item) => sum + item.qty, 0);
+            const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const tax = subtotal * 0.10;
+            const total = subtotal + tax;
+            
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+            document.getElementById('taxAmount').textContent = tax.toFixed(2);
+            document.getElementById('totalAmount').textContent = total.toFixed(2);
+            
+            document.getElementById('orderTotalAmount').value = total.toFixed(2);
+            document.getElementById('orderItemsCount').value = totalItems;
+        }
+        
+        // Reset order form
+        function resetOrderForm() {
+            document.getElementById('orderForm').reset();
+            orderItems = [];
+            renderOrderItemsTable();
+            updateOrderSummary();
+            document.getElementById('foodItemSelect').value = '';
+        }
+        
+        // Save Order (updated to use order items)
         function saveOrder(event) {
             event.preventDefault();
+            
+            if (orderItems.length === 0) {
+                alert('Please add at least one food item to the order');
+                return;
+            }
+            
             const tableSelect = document.getElementById('orderTable');
             const selectedTableOption = tableSelect.options[tableSelect.selectedIndex];
-            const tableNumber = selectedTableOption.getAttribute('data-number') || selectedTableOption.text;
+            const tableNumber = selectedTableOption.getAttribute('data-number');
             
             const orderTypeSelect = document.getElementById('orderType');
             const selectedOrderTypeOption = orderTypeSelect.options[orderTypeSelect.selectedIndex];
             const orderTypeName = selectedOrderTypeOption.text;
+            
+            // Convert orderItems to API format
+            const items = orderItems.map(item => ({
+                food_item_id: item.id,
+                food_name: item.name,
+                category_name: item.category,
+                quantity: item.qty,
+                price: item.price,
+                notes: item.notes
+            }));
             
             const order = {
                 order_number: document.getElementById('orderNumber').value,
@@ -1750,8 +3123,7 @@
                 total_amount: parseFloat(document.getElementById('orderTotalAmount').value),
                 status: document.getElementById('orderStatus').value,
                 notes: document.getElementById('orderNotes').value,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                items: items
             };
             
             fetch('/api/orders', {
@@ -1764,7 +3136,7 @@
                 if (data.success) {
                     closeOrderModal();
                     loadOrders();
-                    alert('Order created successfully!');
+                    alert('✓ Order created successfully!');
                 } else {
                     alert('Error: ' + (data.error || 'Could not create order'));
                 }
@@ -1775,15 +3147,20 @@
         }
         
         // Delete Order
-        function deleteOrder(id) {
+        function deleteOrder(orderId) {
             if (confirm('Are you sure you want to delete this order?')) {
-                fetch(`/api/orders/${id}`, {method: 'DELETE'})
+                fetch(`/api/orders/${orderId}`, {method: 'DELETE'})
                     .then(res => res.json())
                     .then(() => {
                         loadOrders();
                     })
                     .catch(error => console.error('Error deleting order:', error));
             }
+        }
+        
+        // Edit Order
+        function editOrder(orderId) {
+            alert('Edit functionality coming soon');
         }
         
         // Load table options for order form
@@ -2088,6 +3465,1043 @@
                 .then(data => {
                     document.getElementById('daily-production-count').textContent = data.production_items.length;
                 });
+        }
+        
+        // ===== APPLIANCES FUNCTIONS =====
+        
+        // Appliance Modal Functions
+        function openApplianceModal() {
+            document.getElementById('applianceModal').classList.add('active');
+        }
+        
+        function closeApplianceModal() {
+            document.getElementById('applianceModal').classList.remove('active');
+            document.getElementById('applianceForm').reset();
+        }
+        
+        // Kitchen Appliance Modal Functions
+        function openKitchenApplianceModal() {
+            loadKitchensForAssignment();
+            loadAppliancesForAssignment();
+            setTimeout(() => {
+                document.getElementById('kitchenApplianceModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeKitchenApplianceModal() {
+            document.getElementById('kitchenApplianceModal').classList.remove('active');
+            document.getElementById('kitchenApplianceForm').reset();
+        }
+        
+        // Load Appliances
+        function loadAppliances() {
+            fetch('/api/appliances')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('appliances-tbody');
+                    if (data.appliances.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No appliances yet. Add your first appliance!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.appliances.map(app => `
+                        <tr>
+                            <td><strong>${app.name}</strong></td>
+                            <td>${app.type}</td>
+                            <td>${app.model || '-'}</td>
+                            <td>${app.serial_number || '-'}</td>
+                            <td><span class="badge badge-${app.status === 'active' ? 'success' : 'warning'}">${app.status}</span></td>
+                            <td>${app.last_maintenance ? new Date(app.last_maintenance).toLocaleDateString() : '-'}</td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteAppliance('${app.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => console.error('Error loading appliances:', error));
+        }
+        
+        // Load Kitchens For Assignment
+        function loadKitchensForAssignment() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('kaKitchen');
+                    select.innerHTML = '<option value="">Select Kitchen</option>';
+                    if (data.kitchens && data.kitchens.length > 0) {
+                        data.kitchens.forEach(kitchen => {
+                            select.innerHTML += `<option value="${kitchen.id}" data-name="${kitchen.name}">${kitchen.name}</option>`;
+                        });
+                    }
+                    
+                    // Also populate the kitchen filter dropdown
+                    const filterSelect = document.getElementById('appliance-kitchen-filter');
+                    if (filterSelect) {
+                        filterSelect.innerHTML = '<option value="">All Kitchens</option>';
+                        if (data.kitchens && data.kitchens.length > 0) {
+                            data.kitchens.forEach(kitchen => {
+                                filterSelect.innerHTML += `<option value="${kitchen.id}">${kitchen.name}</option>`;
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Load Appliances For Assignment
+        function loadAppliancesForAssignment() {
+            fetch('/api/appliances')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('kaAppliance');
+                    select.innerHTML = '<option value="">Select Appliance</option>';
+                    if (data.appliances && data.appliances.length > 0) {
+                        data.appliances.forEach(app => {
+                            select.innerHTML += `<option value="${app.id}" data-name="${app.name}" data-type="${app.type}">${app.name} (${app.type})</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading appliances:', error));
+        }
+        
+        // Save Appliance
+        function saveAppliance(event) {
+            event.preventDefault();
+            
+            const appliance = {
+                name: document.getElementById('applianceName').value,
+                type: document.getElementById('applianceType').value,
+                model: document.getElementById('applianceModel').value,
+                serial_number: document.getElementById('applianceSerial').value,
+                description: document.getElementById('applianceDescription').value,
+                purchase_date: document.getElementById('appliancePurchaseDate').value,
+                last_maintenance: document.getElementById('applianceMaintenanceDate').value,
+                status: document.getElementById('applianceStatus').value,
+                notes: document.getElementById('applianceNotes').value
+            };
+            
+            fetch('/api/appliances', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(appliance)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeApplianceModal();
+                    loadAppliances();
+                    loadAppliancesForAssignment();
+                    alert('Appliance saved successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save appliance'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving appliance: ' + error);
+            });
+        }
+        
+        // Save Kitchen Appliance Assignment
+        function saveKitchenAppliance(event) {
+            event.preventDefault();
+            
+            const kitchenSelect = document.getElementById('kaKitchen');
+            const applianceSelect = document.getElementById('kaAppliance');
+            
+            if (!kitchenSelect.value) {
+                alert('Please select a kitchen');
+                return;
+            }
+            
+            if (!applianceSelect.value) {
+                alert('Please select an appliance');
+                return;
+            }
+            
+            const selectedKitchen = kitchenSelect.options[kitchenSelect.selectedIndex];
+            const selectedAppliance = applianceSelect.options[applianceSelect.selectedIndex];
+            
+            const mapping = {
+                appliance_id: applianceSelect.value,
+                quantity: parseInt(document.getElementById('kaQuantity').value),
+                location: document.getElementById('kaLocation').value,
+                status: document.getElementById('kaStatus').value
+            };
+            
+            fetch(`/api/kitchens/${kitchenSelect.value}/appliances`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(mapping)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeKitchenApplianceModal();
+                    loadKitchenAppliances();
+                    alert('Appliance assigned to kitchen successfully!');
+                } else {
+                    alert('Error: ' + (data.error || data.message || 'Could not save assignment'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving assignment: ' + error);
+            });
+        }
+        
+        // Load Kitchen Appliances
+        function loadKitchenAppliances() {
+            const kitchenFilter = document.getElementById('appliance-kitchen-filter').value;
+            let url = '/api/kitchens';
+            
+            if (kitchenFilter) {
+                url = `/api/kitchens/${kitchenFilter}/appliances`;
+            }
+            
+            const tbody = document.getElementById('kitchen-appliances-tbody');
+            
+            if (kitchenFilter) {
+                fetch(url)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.appliances || data.appliances.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No appliances assigned to this kitchen yet.</p></div></td></tr>';
+                            return;
+                        }
+                        
+                        tbody.innerHTML = data.appliances.map(app => `
+                            <tr>
+                                <td><strong>${data.kitchen_id || 'Unknown'}</strong></td>
+                                <td><strong>${app.appliance_name}</strong></td>
+                                <td>${app.type}</td>
+                                <td>${app.quantity}</td>
+                                <td>${app.location || '-'}</td>
+                                <td><span class="badge badge-${app.status === 'active' ? 'success' : 'warning'}">${app.status}</span></td>
+                                <td>${new Date(app.assigned_date).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-danger btn-small" onclick="deleteKitchenAppliance('${data.kitchen_id}', '${app.id}')">Remove</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    })
+                    .catch(error => {
+                        console.error('Error loading kitchen appliances:', error);
+                        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Error loading appliances.</p></div></td></tr>';
+                    });
+            } else {
+                // Load all appliance assignments
+                fetch('/api/kitchens')
+                    .then(res => res.json())
+                    .then(kitchensData => {
+                        let allRows = [];
+                        let completed = 0;
+                        let totalKitchens = kitchensData.kitchens.length;
+                        
+                        if (totalKitchens === 0) {
+                            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No kitchens available.</p></div></td></tr>';
+                            return;
+                        }
+                        
+                        kitchensData.kitchens.forEach(kitchen => {
+                            fetch(`/api/kitchens/${kitchen.id}/appliances`)
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.appliances && data.appliances.length > 0) {
+                                        data.appliances.forEach(app => {
+                                            allRows.push(`
+                                                <tr>
+                                                    <td><strong>${kitchen.name}</strong></td>
+                                                    <td><strong>${app.appliance_name}</strong></td>
+                                                    <td>${app.type}</td>
+                                                    <td>${app.quantity}</td>
+                                                    <td>${app.location || '-'}</td>
+                                                    <td><span class="badge badge-${app.status === 'active' ? 'success' : 'warning'}">${app.status}</span></td>
+                                                    <td>${new Date(app.assigned_date).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <button class="btn btn-danger btn-small" onclick="deleteKitchenAppliance('${kitchen.id}', '${app.id}')">Remove</button>
+                                                    </td>
+                                                </tr>
+                                            `);
+                                        });
+                                    }
+                                    completed++;
+                                    
+                                    if (completed === totalKitchens) {
+                                        if (allRows.length === 0) {
+                                            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No appliance assignments yet.</p></div></td></tr>';
+                                        } else {
+                                            tbody.innerHTML = allRows.join('');
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error loading appliances for kitchen:', error);
+                                    completed++;
+                                    if (completed === totalKitchens) {
+                                        if (allRows.length === 0) {
+                                            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Error loading appliances.</p></div></td></tr>';
+                                        } else {
+                                            tbody.innerHTML = allRows.join('');
+                                        }
+                                    }
+                                });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading kitchens:', error);
+                        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Error loading appliances.</p></div></td></tr>';
+                    });
+            }
+        }
+        
+        // Load Kitchen Appliances For Kitchen
+        function loadKitchenAppliancesForKitchen() {
+            const kitchenId = document.getElementById('kaKitchen').value;
+            if (kitchenId) {
+                loadKitchenAppliances();
+            }
+        }
+        
+        // Delete Appliance
+        function deleteAppliance(id) {
+            if (confirm('Are you sure you want to delete this appliance?')) {
+                fetch(`/api/appliances/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadAppliances();
+                        loadAppliancesForAssignment();
+                        alert('Appliance deleted successfully!');
+                    })
+                    .catch(error => {
+                        alert('Error deleting appliance: ' + error);
+                    });
+            }
+        }
+        
+        // Delete Kitchen Appliance Assignment
+        function deleteKitchenAppliance(kitchenId, mappingId) {
+            if (confirm('Are you sure you want to remove this appliance from the kitchen?')) {
+                fetch(`/api/kitchens/${kitchenId}/appliances/${mappingId}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadKitchenAppliances();
+                        alert('Appliance assignment removed successfully!');
+                    })
+                    .catch(error => {
+                        alert('Error removing assignment: ' + error);
+                    });
+            }
+        }
+        
+        // Update Appliance Type Description
+        function updateApplianceTypeDescription() {
+            // Could be extended to show type-specific information
+        }
+        
+        // ===== IoT DEVICES FUNCTIONS =====
+        
+        // IoT Device Modal Functions
+        function openIoTDeviceModal() {
+            loadKitchensForIoTModal();
+            setTimeout(() => {
+                document.getElementById('iotDeviceModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeIoTDeviceModal() {
+            document.getElementById('iotDeviceModal').classList.remove('active');
+            document.getElementById('iotDeviceForm').reset();
+        }
+        
+        // Load IoT Devices
+        function loadIoTDevices() {
+            const kitchenFilter = document.getElementById('iot-kitchen-filter').value;
+            let url = '/api/iot-devices';
+            
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    let devices = data.devices || [];
+                    
+                    // Filter by kitchen if selected
+                    if (kitchenFilter) {
+                        devices = devices.filter(device => device.kitchen_id === kitchenFilter);
+                    }
+                    
+                    const tbody = document.getElementById('iot-devices-tbody');
+                    if (devices.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>No IoT devices found.</p></div></td></tr>';
+                        updateIoTStats(data.devices || []);
+                        return;
+                    }
+                    
+                    tbody.innerHTML = devices.map(device => `
+                        <tr>
+                            <td><strong>${device.name}</strong></td>
+                            <td>${device.device_type}</td>
+                            <td>${device.device_id || '-'}</td>
+                            <td>${device.kitchen_id ? device.kitchen_id.substring(0, 8) : '-'}</td>
+                            <td>${device.location || '-'}</td>
+                            <td>${device.battery_level ? device.battery_level + '%' : '-'}</td>
+                            <td>${device.signal_strength ? device.signal_strength + '%' : '-'}</td>
+                            <td><span class="badge badge-${device.status === 'active' ? 'success' : 'warning'}">${device.status}</span></td>
+                            <td>${device.last_sync ? new Date(device.last_sync).toLocaleDateString() : 'Never'}</td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteIoTDevice('${device.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                    
+                    updateIoTStats(data.devices || []);
+                })
+                .catch(error => {
+                    console.error('Error loading IoT devices:', error);
+                    document.getElementById('iot-devices-tbody').innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>Error loading devices.</p></div></td></tr>';
+                });
+        }
+        
+        // Update IoT Stats
+        function updateIoTStats(devices) {
+            const totalDevices = devices.length;
+            const activeDevices = devices.filter(d => d.status === 'active').length;
+            const lowBatteryDevices = devices.filter(d => d.battery_level && d.battery_level < 20).length;
+            const poorSignalDevices = devices.filter(d => d.signal_strength && d.signal_strength < 30).length;
+            
+            document.getElementById('total-iot-devices').textContent = totalDevices;
+            document.getElementById('active-iot-devices').textContent = activeDevices;
+            document.getElementById('low-battery-devices').textContent = lowBatteryDevices;
+            document.getElementById('poor-signal-devices').textContent = poorSignalDevices;
+        }
+        
+        // Load Kitchens For IoT Filter
+        function loadKitchensForIoTFilter() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('iot-kitchen-filter');
+                    if (select) {
+                        select.innerHTML = '<option value="">All Kitchens</option>';
+                        if (data.kitchens && data.kitchens.length > 0) {
+                            data.kitchens.forEach(kitchen => {
+                                select.innerHTML += `<option value="${kitchen.id}">${kitchen.name}</option>`;
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Load Kitchens For IoT Modal
+        function loadKitchensForIoTModal() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('iotKitchen');
+                    select.innerHTML = '<option value="">Select Kitchen (Optional)</option>';
+                    if (data.kitchens && data.kitchens.length > 0) {
+                        data.kitchens.forEach(kitchen => {
+                            select.innerHTML += `<option value="${kitchen.id}" data-name="${kitchen.name}">${kitchen.name}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Save IoT Device
+        function saveIoTDevice(event) {
+            event.preventDefault();
+            
+            const device = {
+                name: document.getElementById('iotDeviceName').value,
+                device_type: document.getElementById('iotDeviceType').value,
+                device_id: document.getElementById('iotDeviceId').value,
+                kitchen_id: document.getElementById('iotKitchen').value || null,
+                location: document.getElementById('iotLocation').value,
+                description: document.getElementById('iotDescription').value,
+                ip_address: document.getElementById('iotIpAddress').value,
+                mac_address: document.getElementById('iotMacAddress').value,
+                firmware_version: document.getElementById('iotFirmware').value,
+                status: document.getElementById('iotStatus').value,
+                notes: document.getElementById('iotNotes').value
+            };
+            
+            fetch('/api/iot-devices', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(device)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeIoTDeviceModal();
+                    loadIoTDevices();
+                    alert('IoT device saved successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save device'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving device: ' + error);
+            });
+        }
+        
+        // Delete IoT Device
+        function deleteIoTDevice(id) {
+            if (confirm('Are you sure you want to delete this IoT device?')) {
+                fetch(`/api/iot-devices/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadIoTDevices();
+                        alert('IoT device deleted successfully!');
+                    })
+                    .catch(error => {
+                        alert('Error deleting device: ' + error);
+                    });
+            }
+        }
+        
+        // ===== STAFF FUNCTIONS =====
+        
+        // Staff Modal Functions
+        function openStaffModal() {
+            loadPositionsForModal();
+            loadDepartmentsForModal();
+            loadKitchensForStaffModal();
+            setTimeout(() => {
+                document.getElementById('staffModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeStaffModal() {
+            document.getElementById('staffModal').classList.remove('active');
+            document.getElementById('staffForm').reset();
+        }
+        
+        // Load Staff
+        function loadStaff() {
+            const departmentFilter = document.getElementById('staff-department-filter').value;
+            
+            fetch('/api/staff')
+                .then(res => res.json())
+                .then(data => {
+                    let staff = data.staff || [];
+                    
+                    // Filter by department if selected
+                    if (departmentFilter) {
+                        staff = staff.filter(s => s.department === departmentFilter);
+                    }
+                    
+                    const tbody = document.getElementById('staff-tbody');
+                    if (staff.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No staff members found.</p></div></td></tr>';
+                        updateStaffStats(data.staff || []);
+                        return;
+                    }
+                    
+                    tbody.innerHTML = staff.map(member => `
+                        <tr>
+                            <td><strong>${member.name}</strong></td>
+                            <td>${member.position || '-'}</td>
+                            <td>${member.department || '-'}</td>
+                            <td>${member.email || '-'}</td>
+                            <td>${member.phone || '-'}</td>
+                            <td>${member.kitchen_id ? member.kitchen_id.substring(0, 8) : 'Not Assigned'}</td>
+                            <td>${member.hire_date ? new Date(member.hire_date).toLocaleDateString() : '-'}</td>
+                            <td><span class="badge badge-${member.status === 'active' ? 'success' : 'warning'}">${member.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteStaff('${member.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                    
+                    updateStaffStats(data.staff || []);
+                })
+                .catch(error => {
+                    console.error('Error loading staff:', error);
+                    document.getElementById('staff-tbody').innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>Error loading staff.</p></div></td></tr>';
+                });
+        }
+        
+        // Update Staff Stats
+        function updateStaffStats(staff) {
+            const totalStaff = staff.length;
+            const activeStaff = staff.filter(s => s.status === 'active').length;
+            const kitchenStaff = staff.filter(s => s.department === 'Kitchen').length;
+            const fohStaff = staff.filter(s => s.department === 'Front of House').length;
+            
+            document.getElementById('total-staff').textContent = totalStaff;
+            document.getElementById('active-staff').textContent = activeStaff;
+            document.getElementById('kitchen-staff').textContent = kitchenStaff;
+            document.getElementById('foh-staff').textContent = fohStaff;
+        }
+        
+        // Load Positions For Modal
+        function loadPositionsForModal() {
+            fetch('/api/staff-positions')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('staffPosition');
+                    select.innerHTML = '<option value="">Select Position</option>';
+                    if (data.positions && data.positions.length > 0) {
+                        data.positions.forEach(pos => {
+                            select.innerHTML += `<option value="${pos}">${pos}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading positions:', error));
+        }
+        
+        // Load Departments For Modal
+        function loadDepartmentsForModal() {
+            fetch('/api/staff-departments')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('staffDepartment');
+                    select.innerHTML = '<option value="">Select Department</option>';
+                    if (data.departments && data.departments.length > 0) {
+                        data.departments.forEach(dept => {
+                            select.innerHTML += `<option value="${dept}">${dept}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading departments:', error));
+        }
+        
+        // Load Departments For Filter
+        function loadDepartmentsForFilter() {
+            fetch('/api/staff-departments')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('staff-department-filter');
+                    if (select) {
+                        select.innerHTML = '<option value="">All Departments</option>';
+                        if (data.departments && data.departments.length > 0) {
+                            data.departments.forEach(dept => {
+                                select.innerHTML += `<option value="${dept}">${dept}</option>`;
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error('Error loading departments:', error));
+        }
+        
+        // Load Kitchens For Staff Modal
+        function loadKitchensForStaffModal() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('staffKitchen');
+                    select.innerHTML = '<option value="">No Kitchen Assignment</option>';
+                    if (data.kitchens && data.kitchens.length > 0) {
+                        data.kitchens.forEach(kitchen => {
+                            select.innerHTML += `<option value="${kitchen.id}">${kitchen.name}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Save Staff
+        function saveStaff(event) {
+            event.preventDefault();
+            
+            const staff = {
+                name: document.getElementById('staffName').value,
+                position: document.getElementById('staffPosition').value,
+                department: document.getElementById('staffDepartment').value,
+                kitchen_id: document.getElementById('staffKitchen').value || null,
+                email: document.getElementById('staffEmail').value,
+                phone: document.getElementById('staffPhone').value,
+                hire_date: document.getElementById('staffHireDate').value,
+                date_of_birth: document.getElementById('staffDOB').value,
+                address: document.getElementById('staffAddress').value,
+                city: document.getElementById('staffCity').value,
+                state: document.getElementById('staffState').value,
+                postal_code: document.getElementById('staffPostalCode').value,
+                emergency_contact_name: document.getElementById('staffEmergencyName').value,
+                emergency_contact_phone: document.getElementById('staffEmergencyPhone').value,
+                salary_type: document.getElementById('staffSalaryType').value,
+                status: document.getElementById('staffStatus').value,
+                notes: document.getElementById('staffNotes').value
+            };
+            
+            fetch('/api/staff', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(staff)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeStaffModal();
+                    loadStaff();
+                    alert('Staff member saved successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save staff'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving staff: ' + error);
+            });
+        }
+        
+        // Delete Staff
+        function deleteStaff(id) {
+            if (confirm('Are you sure you want to delete this staff member?')) {
+                fetch(`/api/staff/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadStaff();
+                        alert('Staff member deleted successfully!');
+                    })
+                    .catch(error => {
+                        alert('Error deleting staff: ' + error);
+                    });
+            }
+        }
+        
+        // ============ STAFF-KITCHEN ASSIGNMENT FUNCTIONS ============
+        
+        // Open Staff-Kitchen Request Modal
+        function openStaffKitchenRequestModal() {
+            loadStaffForRequest();
+            loadKitchensForRequest();
+            document.getElementById('staffKitchenForm').reset();
+            document.getElementById('staffKitchenRequestModal').style.display = 'flex';
+        }
+        
+        // Close Staff-Kitchen Request Modal
+        function closeStaffKitchenRequestModal() {
+            document.getElementById('staffKitchenRequestModal').style.display = 'none';
+        }
+        
+        // Load staff for dropdown
+        function loadStaffForRequest() {
+            fetch('/api/staff')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('requestStaffId');
+                    select.innerHTML = '<option value="">Select Staff Member</option>';
+                    const staffList = data.staff || data;
+                    staffList.forEach(staff => {
+                        const option = document.createElement('option');
+                        option.value = staff.id;
+                        option.textContent = staff.name + ' (' + staff.position + ')';
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error loading staff:', error));
+        }
+        
+        // Load kitchens for dropdown
+        function loadKitchensForRequest() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('requestKitchenId');
+                    select.innerHTML = '<option value="">Select Kitchen</option>';
+                    const kitchenList = data.kitchens || data;
+                    kitchenList.forEach(kitchen => {
+                        const option = document.createElement('option');
+                        option.value = kitchen.id;
+                        option.textContent = kitchen.name;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Submit staff-kitchen request
+        function submitStaffKitchenRequest(event) {
+            event.preventDefault();
+            
+            const staffId = document.getElementById('requestStaffId').value;
+            const kitchenId = document.getElementById('requestKitchenId').value;
+            const position = document.getElementById('requestPosition').value;
+            const startDate = document.getElementById('requestStartDate').value;
+            const reason = document.getElementById('requestReason').value;
+            
+            // Validate form
+            if (!staffId || !kitchenId || !position || !startDate || !reason) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Get staff name from dropdown
+            const staffSelect = document.getElementById('requestStaffId');
+            const staffOption = staffSelect.options[staffSelect.selectedIndex];
+            const staffText = staffOption.text;
+            const staffName = staffText.split(' (')[0]; // Extract name before position
+            
+            // Get kitchen name from dropdown
+            const kitchenSelect = document.getElementById('requestKitchenId');
+            const kitchenOption = kitchenSelect.options[kitchenSelect.selectedIndex];
+            const kitchenName = kitchenOption.text;
+            
+            fetch('/api/staff-kitchen-requests', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    staff_id: staffId,
+                    staff_name: staffName,
+                    kitchen_id: kitchenId,
+                    kitchen_name: kitchenName,
+                    position: position,
+                    request_reason: reason,
+                    requested_start_date: startDate
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Request submitted successfully!');
+                    closeStaffKitchenRequestModal();
+                    loadPendingRequests();
+                    loadAssignmentStatistics();
+                } else {
+                    alert('Error: ' + (data.error || 'Could not submit request'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error submitting request: ' + error);
+            });
+        }
+        
+        // Load pending requests
+        function loadPendingRequests() {
+            fetch('/api/staff-kitchen-requests/pending')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('pending-requests-tbody');
+                    tbody.innerHTML = '';
+                    
+                    const requestsList = data.requests || data;
+                    
+                    if (requestsList.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No pending requests</p></div></td></tr>';
+                        document.getElementById('pending-requests-count').textContent = '0';
+                        return;
+                    }
+                    
+                    document.getElementById('pending-requests-count').textContent = requestsList.length;
+                    
+                    requestsList.forEach(request => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${request.staff_name}</td>
+                            <td>${request.staff_kitchen || 'Not Assigned'}</td>
+                            <td>${request.kitchen_name}</td>
+                            <td>${request.position}</td>
+                            <td>${request.request_reason}</td>
+                            <td>${request.requested_start_date}</td>
+                            <td>${new Date(request.requested_date).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="openApprovalModal('${request.id}')">Review</button>
+                                <button class="btn btn-sm btn-danger" onclick="quickRejectRequest('${request.id}')">Reject</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error loading pending requests:', error));
+        }
+        
+        // Load active assignments
+        function loadStaffKitchenAssignments() {
+            fetch('/api/staff-kitchen-assignments')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('assignments-tbody');
+                    tbody.innerHTML = '';
+                    
+                    const assignmentsList = data.assignments || data;
+                    
+                    if (assignmentsList.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No active assignments</p></div></td></tr>';
+                        document.getElementById('active-assignments-count').textContent = '0';
+                        return;
+                    }
+                    
+                    document.getElementById('active-assignments-count').textContent = assignmentsList.filter(a => a.status === 'active').length;
+                    
+                    assignmentsList.forEach(assignment => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${assignment.staff_name}</td>
+                            <td>${assignment.kitchen_name}</td>
+                            <td>${assignment.position}</td>
+                            <td>${assignment.assigned_date}</td>
+                            <td>${assignment.end_date || '-'}</td>
+                            <td><span class="badge badge-${assignment.status === 'active' ? 'success' : 'secondary'}">${assignment.status}</span></td>
+                            <td>${assignment.notes || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="editAssignment('${assignment.id}')">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="endAssignment('${assignment.id}')">End</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error loading assignments:', error));
+        }
+        
+        // Load approval statistics
+        function loadAssignmentStatistics() {
+            fetch('/api/staff-kitchen-requests/pending')
+                .then(res => res.json())
+                .then(data => {
+                    const requestsList = data.requests || data;
+                    document.getElementById('pending-requests-count').textContent = requestsList.length;
+                });
+            
+            fetch('/api/staff-kitchen-assignments')
+                .then(res => res.json())
+                .then(data => {
+                    const assignmentsList = data.assignments || data;
+                    const active = assignmentsList.filter(a => a.status === 'active').length;
+                    document.getElementById('active-assignments-count').textContent = active;
+                });
+            
+            // Count approved this month
+            fetch('/api/staff-kitchen-requests')
+                .then(res => res.json())
+                .then(data => {
+                    const requestsList = data.requests || data;
+                    const now = new Date();
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const approved = requestsList.filter(r => 
+                        r.approval_status === 'approved' && 
+                        new Date(r.approval_date) >= monthStart
+                    ).length;
+                    document.getElementById('approved-count').textContent = approved;
+                });
+        }
+        
+        // Open approval modal
+        function openApprovalModal(requestId) {
+            fetch(`/api/staff-kitchen-requests/${requestId}`)
+                .then(res => res.json())
+                .then(request => {
+                    document.getElementById('detailStaffName').textContent = request.staff_name;
+                    document.getElementById('detailKitchenName').textContent = request.kitchen_name;
+                    document.getElementById('detailPosition').textContent = request.position;
+                    document.getElementById('detailStartDate').textContent = request.requested_start_date;
+                    document.getElementById('detailReason').textContent = request.request_reason;
+                    document.getElementById('approvalNotes').value = '';
+                    document.getElementById('approvalForm').dataset.requestId = requestId;
+                    document.getElementById('approvalModal').style.display = 'flex';
+                })
+                .catch(error => console.error('Error loading request:', error));
+        }
+        
+        // Close approval modal
+        function closeApprovalModal() {
+            document.getElementById('approvalModal').style.display = 'none';
+        }
+        
+        // Submit approval decision
+        function submitApprovalDecision(event) {
+            event.preventDefault();
+            
+            const requestId = document.getElementById('approvalForm').dataset.requestId;
+            const notes = document.getElementById('approvalNotes').value;
+            
+            fetch(`/api/staff-kitchen-requests/${requestId}/approve`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    approved_by: 'admin',
+                    approval_notes: notes
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Request approved and assignment created!');
+                    closeApprovalModal();
+                    loadPendingRequests();
+                    loadStaffKitchenAssignments();
+                    loadAssignmentStatistics();
+                } else {
+                    alert('Error: ' + (data.error || 'Could not approve request'));
+                }
+            })
+            .catch(error => alert('Error approving request: ' + error));
+        }
+        
+        // Reject request
+        function rejectRequest() {
+            const requestId = document.getElementById('approvalForm').dataset.requestId;
+            const reason = document.getElementById('approvalNotes').value;
+            
+            if (!reason.trim()) {
+                alert('Please enter a rejection reason');
+                return;
+            }
+            
+            fetch(`/api/staff-kitchen-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rejection_reason: reason})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Request rejected');
+                    closeApprovalModal();
+                    loadPendingRequests();
+                    loadAssignmentStatistics();
+                } else {
+                    alert('Error: ' + (data.error || 'Could not reject request'));
+                }
+            })
+            .catch(error => alert('Error rejecting request: ' + error));
+        }
+        
+        // Quick reject request
+        function quickRejectRequest(requestId) {
+            const reason = prompt('Enter rejection reason:');
+            if (!reason) return;
+            
+            fetch(`/api/staff-kitchen-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rejection_reason: reason})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Request rejected');
+                    loadPendingRequests();
+                    loadAssignmentStatistics();
+                } else {
+                    alert('Error: ' + (data.error || 'Could not reject request'));
+                }
+            })
+            .catch(error => alert('Error rejecting request: ' + error));
+        }
+        
+        // Edit assignment
+        function editAssignment(assignmentId) {
+            alert('Edit functionality coming soon');
+        }
+        
+        // End assignment
+        function endAssignment(assignmentId) {
+            if (confirm('Are you sure you want to end this assignment?')) {
+                fetch(`/api/staff-kitchen-assignments/${assignmentId}`, {
+                    method: 'DELETE'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Assignment ended');
+                        loadStaffKitchenAssignments();
+                        loadAssignmentStatistics();
+                    }
+                })
+                .catch(error => alert('Error ending assignment: ' + error));
+            }
         }
     </script>
 </body>

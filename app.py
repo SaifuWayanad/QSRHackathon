@@ -1,27 +1,280 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import redis
+import sqlite3
 import json
 import uuid
-import sqlite3
+from datetime import datetime
+import os
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
-# Initialize Redis connection
-try:
-    conn = sqlite3.connect("my_database.db")
+# SQLite database setup
+DB_PATH = "my_database.db"
+
+def get_db_connection():
+    """Get database connection"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """Initialize database with all tables"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    redis_client = redis.Redis(
-        host='localhost',
-        port=6379,
-        db=0,
-        decode_responses=True
-    )
-    redis_client.ping()
-    print("✓ Connected to Redis successfully")
-except redis.ConnectionError:
-    print("✗ Redis connection failed. Make sure Redis is running.")
-    redis_client = None
+    # Create tables
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS areas (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            tables_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            items_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS kitchens (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            location TEXT,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            items_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS food_items (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            category_id TEXT NOT NULL,
+            category_name TEXT,
+            kitchen_id TEXT NOT NULL,
+            kitchen_name TEXT,
+            price REAL,
+            description TEXT,
+            specifications TEXT,
+            status TEXT DEFAULT 'available',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES categories(id),
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tables (
+            id TEXT PRIMARY KEY,
+            number INTEGER NOT NULL,
+            area_id TEXT NOT NULL,
+            area_name TEXT,
+            capacity INTEGER,
+            status TEXT DEFAULT 'available',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (area_id) REFERENCES areas(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS order_types (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id TEXT PRIMARY KEY,
+            order_number TEXT UNIQUE,
+            table_id TEXT,
+            table_number TEXT,
+            order_type_id TEXT,
+            order_type_name TEXT,
+            customer_name TEXT,
+            items_count INTEGER DEFAULT 0,
+            total_amount REAL DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (table_id) REFERENCES tables(id),
+            FOREIGN KEY (order_type_id) REFERENCES order_types(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS order_items (
+            id TEXT PRIMARY KEY,
+            order_id TEXT NOT NULL,
+            food_item_id TEXT NOT NULL,
+            food_name TEXT,
+            category_name TEXT,
+            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id),
+            FOREIGN KEY (food_item_id) REFERENCES food_items(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS daily_production (
+            id TEXT PRIMARY KEY,
+            food_id TEXT NOT NULL,
+            food_name TEXT,
+            category_name TEXT,
+            date DATE NOT NULL,
+            planned_quantity INTEGER,
+            produced INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (food_id) REFERENCES food_items(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS appliances (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            model TEXT,
+            serial_number TEXT,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            purchase_date DATE,
+            last_maintenance DATE,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS kitchen_appliances (
+            id TEXT PRIMARY KEY,
+            kitchen_id TEXT NOT NULL,
+            appliance_id TEXT NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            location TEXT,
+            status TEXT DEFAULT 'active',
+            assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+            FOREIGN KEY (appliance_id) REFERENCES appliances(id),
+            UNIQUE(kitchen_id, appliance_id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS iot_devices (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            device_type TEXT NOT NULL,
+            device_id TEXT UNIQUE,
+            location TEXT,
+            kitchen_id TEXT,
+            description TEXT,
+            status TEXT DEFAULT 'active',
+            battery_level INTEGER,
+            signal_strength INTEGER,
+            last_sync TIMESTAMP,
+            ip_address TEXT,
+            mac_address TEXT,
+            firmware_version TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS staff (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE,
+            phone TEXT,
+            position TEXT NOT NULL,
+            department TEXT,
+            kitchen_id TEXT,
+            hire_date DATE,
+            date_of_birth DATE,
+            address TEXT,
+            city TEXT,
+            state TEXT,
+            postal_code TEXT,
+            emergency_contact_name TEXT,
+            emergency_contact_phone TEXT,
+            status TEXT DEFAULT 'active',
+            salary_type TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS staff_kitchen_requests (
+            id TEXT PRIMARY KEY,
+            staff_id TEXT NOT NULL,
+            staff_name TEXT,
+            kitchen_id TEXT NOT NULL,
+            kitchen_name TEXT,
+            position TEXT,
+            request_reason TEXT,
+            requested_start_date DATE,
+            status TEXT DEFAULT 'pending',
+            approval_status TEXT DEFAULT 'pending',
+            approved_by TEXT,
+            approval_notes TEXT,
+            approval_date TIMESTAMP,
+            rejection_reason TEXT,
+            requested_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (staff_id) REFERENCES staff(id),
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+            UNIQUE(staff_id, kitchen_id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS staff_kitchen_assignments (
+            id TEXT PRIMARY KEY,
+            staff_id TEXT NOT NULL,
+            staff_name TEXT,
+            kitchen_id TEXT NOT NULL,
+            kitchen_name TEXT,
+            position TEXT,
+            request_id TEXT,
+            assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            end_date DATE,
+            status TEXT DEFAULT 'active',
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (staff_id) REFERENCES staff(id),
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+            FOREIGN KEY (request_id) REFERENCES staff_kitchen_requests(id),
+            UNIQUE(staff_id, kitchen_id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    print("✓ Database initialized successfully")
 
 # Manager credentials
 MANAGER_USERNAME = 'manager'
@@ -75,65 +328,22 @@ def about():
         'description': 'A simple Flask application'
     })
 
-# Redis API endpoints
-@app.route('/api/redis/set', methods=['POST'])
-def redis_set():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    data = request.get_json()
-    key = data.get('key')
-    value = data.get('value')
-    
-    if not key or value is None:
-        return jsonify({'error': 'Key and value required'}), 400
-    
-    redis_client.set(key, json.dumps(value))
-    return jsonify({'success': True, 'message': f'Key "{key}" set successfully'})
-
-@app.route('/api/redis/get/<key>', methods=['GET'])
-def redis_get(key):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    value = redis_client.get(key)
-    if value is None:
-        return jsonify({'error': 'Key not found'}), 404
-    
-    try:
-        value = json.loads(value)
-    except:
-        pass
-    
-    return jsonify({'key': key, 'value': value})
-
-@app.route('/api/redis/delete/<key>', methods=['DELETE'])
-def redis_delete(key):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    result = redis_client.delete(key)
-    if result:
-        return jsonify({'success': True, 'message': f'Key "{key}" deleted'})
-    return jsonify({'error': 'Key not found'}), 404
-
-@app.route('/api/redis/keys', methods=['GET'])
-def redis_keys():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    keys = redis_client.keys('*')
-    return jsonify({'keys': keys, 'count': len(keys)})
 
 # Menu Categories API
 @app.route('/api/categories', methods=['GET', 'POST'])
 def categories():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         category_id = str(uuid.uuid4())
+        
+        conn.execute(
+            'INSERT INTO categories (id, name, description, status) VALUES (?, ?, ?, ?)',
+            (category_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
+        )
+        conn.commit()
+        
         category = {
             'id': category_id,
             'name': data.get('name'),
@@ -141,38 +351,39 @@ def categories():
             'status': data.get('status', 'active'),
             'items_count': 0
         }
-        redis_client.set(f'category:{category_id}', json.dumps(category))
-        redis_client.sadd('categories', category_id)
+        conn.close()
         return jsonify({'success': True, 'category': category})
     
     # GET all categories
-    category_ids = redis_client.smembers('categories')
-    categories = []
-    for cat_id in category_ids:
-        cat_data = redis_client.get(f'category:{cat_id}')
-        if cat_data:
-            categories.append(json.loads(cat_data))
-    
-    return jsonify({'categories': categories})
+    cursor = conn.execute('SELECT * FROM categories')
+    categories_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'categories': categories_list})
 
 @app.route('/api/categories/<category_id>', methods=['DELETE'])
 def delete_category(category_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    redis_client.delete(f'category:{category_id}')
-    redis_client.srem('categories', category_id)
+    conn = get_db_connection()
+    conn.execute('DELETE FROM categories WHERE id = ?', (category_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Kitchen API
 @app.route('/api/kitchens', methods=['GET', 'POST'])
 def kitchens():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         kitchen_id = str(uuid.uuid4())
+        
+        conn.execute(
+            'INSERT INTO kitchens (id, name, location, description, status) VALUES (?, ?, ?, ?, ?)',
+            (kitchen_id, data.get('name'), data.get('location', ''), data.get('description', ''), data.get('status', 'active'))
+        )
+        conn.commit()
+        
         kitchen = {
             'id': kitchen_id,
             'name': data.get('name'),
@@ -181,34 +392,28 @@ def kitchens():
             'status': data.get('status', 'active'),
             'items_count': 0
         }
-        redis_client.set(f'kitchen:{kitchen_id}', json.dumps(kitchen))
-        redis_client.sadd('kitchens', kitchen_id)
+        conn.close()
         return jsonify({'success': True, 'kitchen': kitchen})
     
     # GET all kitchens
-    kitchen_ids = redis_client.smembers('kitchens')
-    kitchens = []
-    for kitchen_id in kitchen_ids:
-        kitchen_data = redis_client.get(f'kitchen:{kitchen_id}')
-        if kitchen_data:
-            kitchens.append(json.loads(kitchen_data))
-    
-    return jsonify({'kitchens': kitchens})
+    cursor = conn.execute('SELECT * FROM kitchens')
+    kitchens_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'kitchens': kitchens_list})
 
 @app.route('/api/kitchens/<kitchen_id>', methods=['DELETE'])
 def delete_kitchen(kitchen_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    redis_client.delete(f'kitchen:{kitchen_id}')
-    redis_client.srem('kitchens', kitchen_id)
+    conn = get_db_connection()
+    conn.execute('DELETE FROM kitchens WHERE id = ?', (kitchen_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Food Items API
 @app.route('/api/food-items', methods=['GET', 'POST'])
 def food_items():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
@@ -216,32 +421,41 @@ def food_items():
         category_id = data.get('category_id')
         kitchen_id = data.get('kitchen_id')
         
-        # Validate kitchen is provided (MANDATORY)
         if not kitchen_id:
+            conn.close()
             return jsonify({'error': 'Kitchen assignment is mandatory!', 'success': False}), 400
         
         # Get category name
-        category_data = redis_client.get(f'category:{category_id}')
-        category_name = 'Unknown'
-        if category_data:
-            category = json.loads(category_data)
-            category_name = category['name']
-            # Update items count
-            category['items_count'] = category.get('items_count', 0) + 1
-            redis_client.set(f'category:{category_id}', json.dumps(category))
+        cat_row = conn.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
+        category_name = cat_row['name'] if cat_row else 'Unknown'
         
-        # Get kitchen name and update kitchen items count
-        kitchen_data = redis_client.get(f'kitchen:{kitchen_id}')
-        kitchen_name = 'Unknown'
-        if kitchen_data:
-            kitchen = json.loads(kitchen_data)
-            kitchen_name = kitchen['name']
-            kitchen['items_count'] = kitchen.get('items_count', 0) + 1
-            redis_client.set(f'kitchen:{kitchen_id}', json.dumps(kitchen))
-        else:
+        # Get kitchen name
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (kitchen_id,)).fetchone()
+        if not kitchen_row:
+            conn.close()
             return jsonify({'error': 'Kitchen not found!', 'success': False}), 404
         
-        # Create food item with kitchen mapping
+        kitchen_name = kitchen_row['name']
+        
+        # Create food item
+        conn.execute(
+            '''INSERT INTO food_items (id, name, category_id, category_name, kitchen_id, kitchen_name, 
+               price, description, specifications, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (food_id, data.get('name'), category_id, category_name, kitchen_id, kitchen_name,
+             data.get('price'), data.get('description', ''), data.get('specifications', ''),
+             data.get('status', 'available'))
+        )
+        
+        # Update category items_count
+        conn.execute('UPDATE categories SET items_count = items_count + 1 WHERE id = ?', (category_id,))
+        
+        # Update kitchen items_count
+        conn.execute('UPDATE kitchens SET items_count = items_count + 1 WHERE id = ?', (kitchen_id,))
+        
+        conn.commit()
+        conn.close()
+        
         food_item = {
             'id': food_id,
             'name': data.get('name'),
@@ -254,71 +468,51 @@ def food_items():
             'specifications': data.get('specifications', ''),
             'status': data.get('status', 'available')
         }
-        
-        # Store food item
-        redis_client.set(f'food:{food_id}', json.dumps(food_item))
-        redis_client.sadd('food_items', food_id)
-        
-        # Create mapping: Add food item to kitchen's foods list
-        redis_client.sadd(f'kitchen:{kitchen_id}:foods', food_id)
-        
-        # Create reverse mapping: Add kitchen to food's kitchens
-        redis_client.sadd(f'food:{food_id}:kitchens', kitchen_id)
-        
         return jsonify({'success': True, 'food_item': food_item})
     
     # GET all food items
-    food_ids = redis_client.smembers('food_items')
-    food_items_list = []
-    for food_id in food_ids:
-        food_data = redis_client.get(f'food:{food_id}')
-        if food_data:
-            food_items_list.append(json.loads(food_data))
-    
+    cursor = conn.execute('SELECT * FROM food_items')
+    food_items_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     return jsonify({'food_items': food_items_list})
 
 @app.route('/api/food-items/<food_id>', methods=['DELETE'])
 def delete_food_item(food_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
-    # Get food item to update category and kitchen count
-    food_data = redis_client.get(f'food:{food_id}')
-    if food_data:
-        food_item = json.loads(food_data)
-        
-        # Update category count
-        category_id = food_item.get('category_id')
-        if category_id:
-            category_data = redis_client.get(f'category:{category_id}')
-            if category_data:
-                category = json.loads(category_data)
-                category['items_count'] = max(0, category.get('items_count', 1) - 1)
-                redis_client.set(f'category:{category_id}', json.dumps(category))
-        
-        # Update kitchen count
-        kitchen_id = food_item.get('kitchen_id')
-        if kitchen_id:
-            kitchen_data = redis_client.get(f'kitchen:{kitchen_id}')
-            if kitchen_data:
-                kitchen = json.loads(kitchen_data)
-                kitchen['items_count'] = max(0, kitchen.get('items_count', 1) - 1)
-                redis_client.set(f'kitchen:{kitchen_id}', json.dumps(kitchen))
+    # Get food item details
+    food_row = conn.execute('SELECT * FROM food_items WHERE id = ?', (food_id,)).fetchone()
     
-    redis_client.delete(f'food:{food_id}')
-    redis_client.srem('food_items', food_id)
+    if food_row:
+        category_id = food_row['category_id']
+        kitchen_id = food_row['kitchen_id']
+        
+        conn.execute('UPDATE categories SET items_count = MAX(0, items_count - 1) WHERE id = ?', (category_id,))
+        conn.execute('UPDATE kitchens SET items_count = MAX(0, items_count - 1) WHERE id = ?', (kitchen_id,))
+    
+    conn.execute('DELETE FROM food_items WHERE id = ?', (food_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Daily Production API
 @app.route('/api/daily-production', methods=['GET', 'POST'])
 def daily_production():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         production_id = str(uuid.uuid4())
         date = data.get('date')
+        
+        conn.execute(
+            '''INSERT INTO daily_production (id, food_id, food_name, category_name, date, planned_quantity, produced, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (production_id, data.get('food_id'), data.get('food_name'), data.get('category_name'),
+             date, data.get('planned_quantity'), data.get('produced', 0), data.get('notes', ''))
+        )
+        conn.commit()
         
         production_item = {
             'id': production_id,
@@ -330,65 +524,63 @@ def daily_production():
             'produced': data.get('produced', 0),
             'notes': data.get('notes', '')
         }
-        
-        redis_client.set(f'production:{production_id}', json.dumps(production_item))
-        redis_client.sadd(f'production_date:{date}', production_id)
-        redis_client.sadd('all_productions', production_id)
-        
+        conn.close()
         return jsonify({'success': True, 'production_item': production_item})
     
     # GET production items for a specific date
     date = request.args.get('date')
     if not date:
-        from datetime import datetime
         date = datetime.now().strftime('%Y-%m-%d')
     
-    production_ids = redis_client.smembers(f'production_date:{date}')
-    production_items = []
-    for prod_id in production_ids:
-        prod_data = redis_client.get(f'production:{prod_id}')
-        if prod_data:
-            production_items.append(json.loads(prod_data))
+    cursor = conn.execute('SELECT * FROM daily_production WHERE date = ?', (date,))
+    production_items = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     
     return jsonify({'production_items': production_items, 'date': date})
 
 @app.route('/api/daily-production/<production_id>', methods=['PUT', 'DELETE'])
 def update_delete_production(production_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'PUT':
         data = request.get_json()
-        prod_data = redis_client.get(f'production:{production_id}')
+        prod_row = conn.execute('SELECT * FROM daily_production WHERE id = ?', (production_id,)).fetchone()
         
-        if prod_data:
-            production = json.loads(prod_data)
-            production['produced'] = data.get('produced', production['produced'])
-            redis_client.set(f'production:{production_id}', json.dumps(production))
-            return jsonify({'success': True, 'production_item': production})
+        if prod_row:
+            conn.execute(
+                'UPDATE daily_production SET produced = ? WHERE id = ?',
+                (data.get('produced', prod_row['produced']), production_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM daily_production WHERE id = ?', (production_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'production_item': dict(updated)})
         
+        conn.close()
         return jsonify({'error': 'Production item not found'}), 404
     
     # DELETE
-    prod_data = redis_client.get(f'production:{production_id}')
-    if prod_data:
-        production = json.loads(prod_data)
-        date = production.get('date')
-        redis_client.srem(f'production_date:{date}', production_id)
-    
-    redis_client.delete(f'production:{production_id}')
-    redis_client.srem('all_productions', production_id)
+    conn.execute('DELETE FROM daily_production WHERE id = ?', (production_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Areas API
 @app.route('/api/areas', methods=['GET', 'POST'])
 def areas():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         area_id = str(uuid.uuid4())
+        
+        conn.execute(
+            'INSERT INTO areas (id, name, description, status) VALUES (?, ?, ?, ?)',
+            (area_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
+        )
+        conn.commit()
         
         area = {
             'id': area_id,
@@ -397,104 +589,94 @@ def areas():
             'status': data.get('status', 'active'),
             'tables_count': 0
         }
-        redis_client.set(f'area:{area_id}', json.dumps(area))
-        redis_client.sadd('areas', area_id)
+        conn.close()
         return jsonify({'success': True, 'area': area})
     
     # GET all areas
-    area_ids = redis_client.smembers('areas')
-    areas_list = []
-    for area_id in area_ids:
-        area_data = redis_client.get(f'area:{area_id}')
-        if area_data:
-            areas_list.append(json.loads(area_data))
-    
+    cursor = conn.execute('SELECT * FROM areas')
+    areas_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     return jsonify({'areas': areas_list})
 
 @app.route('/api/areas/<area_id>', methods=['DELETE'])
 def delete_area(area_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    redis_client.delete(f'area:{area_id}')
-    redis_client.srem('areas', area_id)
+    conn = get_db_connection()
+    conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Tables API
 @app.route('/api/tables', methods=['GET', 'POST'])
 def tables():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         table_id = str(uuid.uuid4())
         area_id = data.get('area_id')
         
-        # Update area's table count
-        if area_id:
-            area_data = redis_client.get(f'area:{area_id}')
-            if area_data:
-                area = json.loads(area_data)
-                area['tables_count'] = area.get('tables_count', 0) + 1
-                redis_client.set(f'area:{area_id}', json.dumps(area))
+        # Get area name and update table count
+        area_row = conn.execute('SELECT name FROM areas WHERE id = ?', (area_id,)).fetchone()
+        area_name = area_row['name'] if area_row else ''
+        
+        conn.execute(
+            'INSERT INTO tables (id, number, area_id, area_name, capacity, status) VALUES (?, ?, ?, ?, ?, ?)',
+            (table_id, data.get('number'), area_id, area_name, data.get('capacity'), data.get('status', 'available'))
+        )
+        
+        conn.execute('UPDATE areas SET tables_count = tables_count + 1 WHERE id = ?', (area_id,))
+        conn.commit()
         
         table = {
             'id': table_id,
             'number': data.get('number'),
             'area_id': area_id,
-            'area_name': data.get('area_name', ''),
+            'area_name': area_name,
             'capacity': data.get('capacity'),
             'status': data.get('status', 'available')
         }
-        redis_client.set(f'table:{table_id}', json.dumps(table))
-        redis_client.sadd('tables', table_id)
-        redis_client.sadd(f'area:{area_id}:tables', table_id)
+        conn.close()
         return jsonify({'success': True, 'table': table})
     
     # GET all tables
-    table_ids = redis_client.smembers('tables')
-    tables_list = []
-    for table_id in table_ids:
-        table_data = redis_client.get(f'table:{table_id}')
-        if table_data:
-            tables_list.append(json.loads(table_data))
-    
+    cursor = conn.execute('SELECT * FROM tables')
+    tables_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     return jsonify({'tables': tables_list})
 
 @app.route('/api/tables/<table_id>', methods=['DELETE'])
 def delete_table(table_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
-    table_data = redis_client.get(f'table:{table_id}')
-    if table_data:
-        table = json.loads(table_data)
-        area_id = table.get('area_id')
-        
-        # Update area's table count
-        if area_id:
-            area_data = redis_client.get(f'area:{area_id}')
-            if area_data:
-                area = json.loads(area_data)
-                area['tables_count'] = max(0, area.get('tables_count', 1) - 1)
-                redis_client.set(f'area:{area_id}', json.dumps(area))
-        
-        redis_client.srem(f'area:{area_id}:tables', table_id)
+    # Get table details
+    table_row = conn.execute('SELECT area_id FROM tables WHERE id = ?', (table_id,)).fetchone()
     
-    redis_client.delete(f'table:{table_id}')
-    redis_client.srem('tables', table_id)
+    if table_row:
+        area_id = table_row['area_id']
+        conn.execute('UPDATE areas SET tables_count = MAX(0, tables_count - 1) WHERE id = ?', (area_id,))
+    
+    conn.execute('DELETE FROM tables WHERE id = ?', (table_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Order Types API
 @app.route('/api/order-types', methods=['GET', 'POST'])
 def order_types():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         order_type_id = str(uuid.uuid4())
+        
+        conn.execute(
+            'INSERT INTO order_types (id, name, description, status) VALUES (?, ?, ?, ?)',
+            (order_type_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
+        )
+        conn.commit()
         
         order_type = {
             'id': order_type_id,
@@ -502,38 +684,63 @@ def order_types():
             'description': data.get('description', ''),
             'status': data.get('status', 'active')
         }
-        redis_client.set(f'order_type:{order_type_id}', json.dumps(order_type))
-        redis_client.sadd('order_types', order_type_id)
+        conn.close()
         return jsonify({'success': True, 'order_type': order_type})
     
     # GET all order types
-    order_type_ids = redis_client.smembers('order_types')
-    order_types_list = []
-    for order_type_id in order_type_ids:
-        order_type_data = redis_client.get(f'order_type:{order_type_id}')
-        if order_type_data:
-            order_types_list.append(json.loads(order_type_data))
-    
+    cursor = conn.execute('SELECT * FROM order_types')
+    order_types_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     return jsonify({'order_types': order_types_list})
 
 @app.route('/api/order-types/<order_type_id>', methods=['DELETE'])
 def delete_order_type(order_type_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
-    
-    redis_client.delete(f'order_type:{order_type_id}')
-    redis_client.srem('order_types', order_type_id)
+    conn = get_db_connection()
+    conn.execute('DELETE FROM order_types WHERE id = ?', (order_type_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'success': True})
+
 
 # Orders API
 @app.route('/api/orders', methods=['GET', 'POST'])
 def orders():
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'POST':
         data = request.get_json()
         order_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        
+        conn.execute(
+            '''INSERT INTO orders (id, order_number, table_id, table_number, order_type_id, order_type_name,
+               customer_name, items_count, total_amount, status, notes, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (order_id, data.get('order_number'), data.get('table_id'), data.get('table_number', ''),
+             data.get('order_type_id'), data.get('order_type_name', ''), data.get('customer_name', ''),
+             data.get('items_count', 0), data.get('total_amount', 0), data.get('status', 'pending'),
+             data.get('notes', ''), now, now)
+        )
+        
+        # Save order items
+        items = data.get('items', [])
+        for item in items:
+            item_id = str(uuid.uuid4())
+            try:
+                conn.execute(
+                    '''INSERT INTO order_items (id, order_id, food_item_id, food_name, category_name, quantity, price, notes, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (item_id, order_id, item.get('food_item_id', ''), item.get('food_name', ''),
+                     item.get('category_name', ''), item.get('quantity', 1), item.get('price', 0),
+                     item.get('notes', ''), now)
+                )
+            except sqlite3.IntegrityError as e:
+                # Handle duplicate item (same food_item in same order)
+                print(f"Note: Duplicate item in order - {e}")
+                conn.rollback()
+                continue
+        
+        conn.commit()
         
         order = {
             'id': order_id,
@@ -547,48 +754,891 @@ def orders():
             'total_amount': data.get('total_amount', 0),
             'status': data.get('status', 'pending'),
             'notes': data.get('notes', ''),
-            'created_at': data.get('created_at', ''),
-            'updated_at': data.get('updated_at', '')
+            'created_at': now,
+            'updated_at': now
         }
-        redis_client.set(f'order:{order_id}', json.dumps(order))
-        redis_client.sadd('orders', order_id)
+        conn.close()
         return jsonify({'success': True, 'order': order})
     
     # GET all orders
-    order_ids = redis_client.smembers('orders')
-    orders_list = []
-    for order_id in order_ids:
-        order_data = redis_client.get(f'order:{order_id}')
-        if order_data:
-            orders_list.append(json.loads(order_data))
-    
+    cursor = conn.execute('SELECT * FROM orders')
+    orders_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
     return jsonify({'orders': orders_list})
 
 @app.route('/api/orders/<order_id>', methods=['GET', 'PUT', 'DELETE'])
 def order_detail(order_id):
-    if not redis_client:
-        return jsonify({'error': 'Redis not connected'}), 500
+    conn = get_db_connection()
     
     if request.method == 'DELETE':
-        redis_client.delete(f'order:{order_id}')
-        redis_client.srem('orders', order_id)
+        conn.execute('DELETE FROM orders WHERE id = ?', (order_id,))
+        conn.commit()
+        conn.close()
         return jsonify({'success': True})
     
     if request.method == 'PUT':
         data = request.get_json()
-        order_data = redis_client.get(f'order:{order_id}')
-        if order_data:
-            order = json.loads(order_data)
-            order.update(data)
-            redis_client.set(f'order:{order_id}', json.dumps(order))
-            return jsonify({'success': True, 'order': order})
+        now = datetime.now().isoformat()
+        
+        order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+        if order_row:
+            conn.execute(
+                '''UPDATE orders SET order_number = ?, table_id = ?, table_number = ?, 
+                   order_type_id = ?, order_type_name = ?, customer_name = ?, items_count = ?, 
+                   total_amount = ?, status = ?, notes = ?, updated_at = ?
+                   WHERE id = ?''',
+                (data.get('order_number', order_row['order_number']),
+                 data.get('table_id', order_row['table_id']),
+                 data.get('table_number', order_row['table_number']),
+                 data.get('order_type_id', order_row['order_type_id']),
+                 data.get('order_type_name', order_row['order_type_name']),
+                 data.get('customer_name', order_row['customer_name']),
+                 data.get('items_count', order_row['items_count']),
+                 data.get('total_amount', order_row['total_amount']),
+                 data.get('status', order_row['status']),
+                 data.get('notes', order_row['notes']),
+                 now, order_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+            updated_dict = dict(updated)
+            # Fetch order items
+            items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+            updated_dict['items'] = [dict(row) for row in items_rows]
+            conn.close()
+            return jsonify({'success': True, 'order': updated_dict})
+        
+        conn.close()
         return jsonify({'error': 'Order not found'}), 404
     
     # GET single order
-    order_data = redis_client.get(f'order:{order_id}')
-    if order_data:
-        return jsonify({'order': json.loads(order_data)})
-    return jsonify({'error': 'Order not found'}), 404
+    order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+    if order_row:
+        order_dict = dict(order_row)
+        # Fetch order items
+        items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+        order_dict['items'] = [dict(row) for row in items_rows]
+        conn.close()
+        return jsonify({'success': True, 'order': order_dict})
+    
+    conn.close()
+    return jsonify({'success': False, 'error': 'Order not found'}), 404
+
+@app.route('/api/orders/<order_id>/items', methods=['GET'])
+def order_items(order_id):
+    conn = get_db_connection()
+    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    conn.close()
+    return jsonify({'items': [dict(row) for row in items_rows]})
+
+
+# Appliances API
+@app.route('/api/appliances', methods=['GET', 'POST'])
+def appliances():
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        appliance_id = str(uuid.uuid4())
+        
+        conn.execute(
+            '''INSERT INTO appliances (id, name, type, model, serial_number, description, status, purchase_date, last_maintenance, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (appliance_id, data.get('name'), data.get('type'), data.get('model', ''),
+             data.get('serial_number', ''), data.get('description', ''), data.get('status', 'active'),
+             data.get('purchase_date'), data.get('last_maintenance'), data.get('notes', ''))
+        )
+        conn.commit()
+        
+        appliance = {
+            'id': appliance_id,
+            'name': data.get('name'),
+            'type': data.get('type'),
+            'model': data.get('model', ''),
+            'serial_number': data.get('serial_number', ''),
+            'description': data.get('description', ''),
+            'status': data.get('status', 'active'),
+            'purchase_date': data.get('purchase_date'),
+            'last_maintenance': data.get('last_maintenance'),
+            'notes': data.get('notes', '')
+        }
+        conn.close()
+        return jsonify({'success': True, 'appliance': appliance})
+    
+    # GET all appliances
+    cursor = conn.execute('SELECT * FROM appliances')
+    appliances_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'appliances': appliances_list})
+
+@app.route('/api/appliances/<appliance_id>', methods=['GET', 'PUT', 'DELETE'])
+def appliance_detail(appliance_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM appliances WHERE id = ?', (appliance_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        appliance_row = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+        
+        if appliance_row:
+            conn.execute(
+                '''UPDATE appliances SET name = ?, type = ?, model = ?, serial_number = ?, 
+                   description = ?, status = ?, purchase_date = ?, last_maintenance = ?, notes = ?
+                   WHERE id = ?''',
+                (data.get('name', appliance_row['name']),
+                 data.get('type', appliance_row['type']),
+                 data.get('model', appliance_row['model']),
+                 data.get('serial_number', appliance_row['serial_number']),
+                 data.get('description', appliance_row['description']),
+                 data.get('status', appliance_row['status']),
+                 data.get('purchase_date', appliance_row['purchase_date']),
+                 data.get('last_maintenance', appliance_row['last_maintenance']),
+                 data.get('notes', appliance_row['notes']),
+                 appliance_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'appliance': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Appliance not found'}), 404
+    
+    # GET single appliance
+    appliance_row = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+    conn.close()
+    
+    if appliance_row:
+        return jsonify({'appliance': dict(appliance_row)})
+    return jsonify({'error': 'Appliance not found'}), 404
+
+
+# Kitchen Appliances Mapping API
+@app.route('/api/kitchens/<kitchen_id>/appliances', methods=['GET', 'POST'])
+def kitchen_appliances(kitchen_id):
+    conn = get_db_connection()
+    
+    # Verify kitchen exists
+    kitchen_row = conn.execute('SELECT id FROM kitchens WHERE id = ?', (kitchen_id,)).fetchone()
+    if not kitchen_row:
+        conn.close()
+        return jsonify({'error': 'Kitchen not found'}), 404
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        appliance_id = data.get('appliance_id')
+        quantity = data.get('quantity', 1)
+        location = data.get('location', '')
+        
+        # Verify appliance exists
+        appliance_row = conn.execute('SELECT name FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+        if not appliance_row:
+            conn.close()
+            return jsonify({'error': 'Appliance not found'}), 404
+        
+        # Check if already exists
+        existing = conn.execute(
+            'SELECT id FROM kitchen_appliances WHERE kitchen_id = ? AND appliance_id = ?',
+            (kitchen_id, appliance_id)
+        ).fetchone()
+        
+        if existing:
+            conn.close()
+            return jsonify({'error': 'Appliance already assigned to this kitchen'}), 400
+        
+        mapping_id = str(uuid.uuid4())
+        conn.execute(
+            '''INSERT INTO kitchen_appliances (id, kitchen_id, appliance_id, quantity, location, status)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (mapping_id, kitchen_id, appliance_id, quantity, location, 'active')
+        )
+        conn.commit()
+        
+        mapping = {
+            'id': mapping_id,
+            'kitchen_id': kitchen_id,
+            'appliance_id': appliance_id,
+            'appliance_name': appliance_row['name'],
+            'quantity': quantity,
+            'location': location,
+            'status': 'active'
+        }
+        conn.close()
+        return jsonify({'success': True, 'mapping': mapping})
+    
+    # GET all appliances for this kitchen
+    cursor = conn.execute(
+        '''SELECT ka.id, ka.kitchen_id, ka.appliance_id, a.name as appliance_name, a.type, a.model,
+           ka.quantity, ka.location, ka.status, ka.assigned_date
+           FROM kitchen_appliances ka
+           JOIN appliances a ON ka.appliance_id = a.id
+           WHERE ka.kitchen_id = ?''',
+        (kitchen_id,)
+    )
+    mappings = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'kitchen_id': kitchen_id, 'appliances': mappings})
+
+@app.route('/api/kitchens/<kitchen_id>/appliances/<mapping_id>', methods=['PUT', 'DELETE'])
+def kitchen_appliance_detail(kitchen_id, mapping_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        # Verify mapping belongs to this kitchen
+        mapping_row = conn.execute(
+            'SELECT id FROM kitchen_appliances WHERE id = ? AND kitchen_id = ?',
+            (mapping_id, kitchen_id)
+        ).fetchone()
+        
+        if not mapping_row:
+            conn.close()
+            return jsonify({'error': 'Mapping not found'}), 404
+        
+        conn.execute('DELETE FROM kitchen_appliances WHERE id = ?', (mapping_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        mapping_row = conn.execute(
+            'SELECT * FROM kitchen_appliances WHERE id = ? AND kitchen_id = ?',
+            (mapping_id, kitchen_id)
+        ).fetchone()
+        
+        if mapping_row:
+            conn.execute(
+                '''UPDATE kitchen_appliances SET quantity = ?, location = ?, status = ?
+                   WHERE id = ?''',
+                (data.get('quantity', mapping_row['quantity']),
+                 data.get('location', mapping_row['location']),
+                 data.get('status', mapping_row['status']),
+                 mapping_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute(
+                '''SELECT ka.id, ka.kitchen_id, ka.appliance_id, a.name as appliance_name, a.type, a.model,
+                   ka.quantity, ka.location, ka.status, ka.assigned_date
+                   FROM kitchen_appliances ka
+                   JOIN appliances a ON ka.appliance_id = a.id
+                   WHERE ka.id = ?''',
+                (mapping_id,)
+            ).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'mapping': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Mapping not found'}), 404
+
+
+# Get all appliance types (for filtering/reference)
+@app.route('/api/appliance-types', methods=['GET'])
+def appliance_types():
+    appliance_types_list = [
+        'Oven',
+        'Stove/Cooktop',
+        'Grill',
+        'Fryer',
+        'Microwave',
+        'Refrigerator',
+        'Freezer',
+        'Dishwasher',
+        'Food Processor',
+        'Mixer',
+        'Blender',
+        'Coffee Maker',
+        'Toaster',
+        'Kettle',
+        'Steamer',
+        'Pressure Cooker',
+        'Slow Cooker',
+        'Rice Cooker',
+        'Waffle Maker',
+        'Juicer',
+        'Slicer',
+        'Chopper',
+        'Scale',
+        'Timer',
+        'Ventilation Hood',
+        'Prep Table',
+        'Cutting Board',
+        'Other'
+    ]
+    return jsonify({'types': appliance_types_list})
+
+
+# IoT Devices API
+@app.route('/api/iot-devices', methods=['GET', 'POST'])
+def iot_devices():
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        device_id = str(uuid.uuid4())
+        
+        conn.execute(
+            '''INSERT INTO iot_devices (id, name, device_type, device_id, location, kitchen_id, description, 
+               status, battery_level, signal_strength, ip_address, mac_address, firmware_version, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (device_id, data.get('name'), data.get('device_type'), data.get('device_id', ''),
+             data.get('location', ''), data.get('kitchen_id'), data.get('description', ''),
+             data.get('status', 'active'), data.get('battery_level'), data.get('signal_strength'),
+             data.get('ip_address', ''), data.get('mac_address', ''), data.get('firmware_version', ''),
+             data.get('notes', ''))
+        )
+        conn.commit()
+        
+        device = {
+            'id': device_id,
+            'name': data.get('name'),
+            'device_type': data.get('device_type'),
+            'device_id': data.get('device_id', ''),
+            'location': data.get('location', ''),
+            'kitchen_id': data.get('kitchen_id'),
+            'status': data.get('status', 'active')
+        }
+        conn.close()
+        return jsonify({'success': True, 'device': device})
+    
+    # GET all IoT devices
+    cursor = conn.execute('SELECT * FROM iot_devices')
+    devices_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'devices': devices_list})
+
+@app.route('/api/iot-devices/<device_id>', methods=['GET', 'PUT', 'DELETE'])
+def iot_device_detail(device_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM iot_devices WHERE id = ?', (device_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        device_row = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+        
+        if device_row:
+            conn.execute(
+                '''UPDATE iot_devices SET name = ?, device_type = ?, device_id = ?, location = ?, 
+                   kitchen_id = ?, description = ?, status = ?, battery_level = ?, signal_strength = ?,
+                   ip_address = ?, mac_address = ?, firmware_version = ?, notes = ?, last_sync = ?
+                   WHERE id = ?''',
+                (data.get('name', device_row['name']),
+                 data.get('device_type', device_row['device_type']),
+                 data.get('device_id', device_row['device_id']),
+                 data.get('location', device_row['location']),
+                 data.get('kitchen_id', device_row['kitchen_id']),
+                 data.get('description', device_row['description']),
+                 data.get('status', device_row['status']),
+                 data.get('battery_level', device_row['battery_level']),
+                 data.get('signal_strength', device_row['signal_strength']),
+                 data.get('ip_address', device_row['ip_address']),
+                 data.get('mac_address', device_row['mac_address']),
+                 data.get('firmware_version', device_row['firmware_version']),
+                 data.get('notes', device_row['notes']),
+                 datetime.now() if data.get('last_sync') else device_row['last_sync'],
+                 device_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'device': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Device not found'}), 404
+    
+    # GET single device
+    device_row = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+    conn.close()
+    
+    if device_row:
+        return jsonify({'device': dict(device_row)})
+    return jsonify({'error': 'Device not found'}), 404
+
+
+# Get all IoT device types (for filtering/reference)
+@app.route('/api/iot-device-types', methods=['GET'])
+def iot_device_types():
+    device_types = [
+        'Temperature Sensor',
+        'Humidity Sensor',
+        'Motion Detector',
+        'Door Sensor',
+        'Smoke Detector',
+        'Pressure Gauge',
+        'Weight Scale',
+        'RFID Reader',
+        'Camera',
+        'Smart Display',
+        'Beacon',
+        'Gas Detector',
+        'Water Flow Meter',
+        'Energy Meter',
+        'Light Sensor',
+        'Sound Sensor',
+        'Other'
+    ]
+    return jsonify({'types': device_types})
+
+
+# Staff API
+@app.route('/api/staff', methods=['GET', 'POST'])
+def staff():
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        staff_id = str(uuid.uuid4())
+        
+        conn.execute(
+            '''INSERT INTO staff (id, name, email, phone, position, department, kitchen_id, 
+               hire_date, date_of_birth, address, city, state, postal_code, 
+               emergency_contact_name, emergency_contact_phone, status, salary_type, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (staff_id, data.get('name'), data.get('email'), data.get('phone'),
+             data.get('position'), data.get('department'), data.get('kitchen_id'),
+             data.get('hire_date'), data.get('date_of_birth'), data.get('address'),
+             data.get('city'), data.get('state'), data.get('postal_code'),
+             data.get('emergency_contact_name'), data.get('emergency_contact_phone'),
+             data.get('status', 'active'), data.get('salary_type'), data.get('notes', ''))
+        )
+        conn.commit()
+        
+        staff_member = {
+            'id': staff_id,
+            'name': data.get('name'),
+            'email': data.get('email'),
+            'phone': data.get('phone'),
+            'position': data.get('position'),
+            'status': data.get('status', 'active')
+        }
+        conn.close()
+        return jsonify({'success': True, 'staff': staff_member})
+    
+    # GET all staff
+    cursor = conn.execute('SELECT * FROM staff ORDER BY name')
+    staff_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'staff': staff_list})
+
+@app.route('/api/staff/<staff_id>', methods=['GET', 'PUT', 'DELETE'])
+def staff_detail(staff_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM staff WHERE id = ?', (staff_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        staff_row = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+        
+        if staff_row:
+            conn.execute(
+                '''UPDATE staff SET name = ?, email = ?, phone = ?, position = ?, 
+                   department = ?, kitchen_id = ?, hire_date = ?, date_of_birth = ?, 
+                   address = ?, city = ?, state = ?, postal_code = ?, 
+                   emergency_contact_name = ?, emergency_contact_phone = ?, 
+                   status = ?, salary_type = ?, notes = ?
+                   WHERE id = ?''',
+                (data.get('name', staff_row['name']),
+                 data.get('email', staff_row['email']),
+                 data.get('phone', staff_row['phone']),
+                 data.get('position', staff_row['position']),
+                 data.get('department', staff_row['department']),
+                 data.get('kitchen_id', staff_row['kitchen_id']),
+                 data.get('hire_date', staff_row['hire_date']),
+                 data.get('date_of_birth', staff_row['date_of_birth']),
+                 data.get('address', staff_row['address']),
+                 data.get('city', staff_row['city']),
+                 data.get('state', staff_row['state']),
+                 data.get('postal_code', staff_row['postal_code']),
+                 data.get('emergency_contact_name', staff_row['emergency_contact_name']),
+                 data.get('emergency_contact_phone', staff_row['emergency_contact_phone']),
+                 data.get('status', staff_row['status']),
+                 data.get('salary_type', staff_row['salary_type']),
+                 data.get('notes', staff_row['notes']),
+                 staff_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'staff': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Staff member not found'}), 404
+    
+    # GET single staff
+    staff_row = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+    conn.close()
+    
+    if staff_row:
+        return jsonify({'staff': dict(staff_row)})
+    return jsonify({'error': 'Staff member not found'}), 404
+
+
+# Get staff positions (for filtering/reference)
+@app.route('/api/staff-positions', methods=['GET'])
+def staff_positions():
+    positions = [
+        'Chef',
+        'Sous Chef',
+        'Head Cook',
+        'Line Cook',
+        'Prep Cook',
+        'Pastry Chef',
+        'Dishwasher',
+        'Server',
+        'Host/Hostess',
+        'Busser',
+        'Bartender',
+        'Barista',
+        'Manager',
+        'Assistant Manager',
+        'Kitchen Manager',
+        'Front of House Manager',
+        'Sommelier',
+        'Other'
+    ]
+    return jsonify({'positions': positions})
+
+
+# Get staff departments (for filtering/reference)
+@app.route('/api/staff-departments', methods=['GET'])
+def staff_departments():
+    departments = [
+        'Kitchen',
+        'Front of House',
+        'Bar',
+        'Pastry',
+        'Management',
+        'Maintenance',
+        'Administrative',
+        'Other'
+    ]
+    return jsonify({'departments': departments})
+
+
+# Staff Kitchen Requests API (with Manager Approval)
+@app.route('/api/staff-kitchen-requests', methods=['GET', 'POST'])
+def staff_kitchen_requests():
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        request_id = str(uuid.uuid4())
+        
+        # Get staff and kitchen details
+        staff_row = conn.execute('SELECT name FROM staff WHERE id = ?', (data.get('staff_id'),)).fetchone()
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (data.get('kitchen_id'),)).fetchone()
+        
+        if not staff_row or not kitchen_row:
+            conn.close()
+            return jsonify({'error': 'Staff or kitchen not found'}), 404
+        
+        conn.execute(
+            '''INSERT INTO staff_kitchen_requests 
+               (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_reason, 
+                requested_start_date, status, approval_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (request_id, data.get('staff_id'), staff_row['name'], 
+             data.get('kitchen_id'), kitchen_row['name'], data.get('position'),
+             data.get('request_reason'), data.get('requested_start_date'), 
+             'pending', 'pending')
+        )
+        conn.commit()
+        
+        result = {
+            'id': request_id,
+            'staff_id': data.get('staff_id'),
+            'staff_name': staff_row['name'],
+            'kitchen_id': data.get('kitchen_id'),
+            'kitchen_name': kitchen_row['name'],
+            'status': 'pending',
+            'approval_status': 'pending'
+        }
+        conn.close()
+        return jsonify({'success': True, 'request': result})
+    
+    # GET all requests
+    cursor = conn.execute(
+        '''SELECT * FROM staff_kitchen_requests ORDER BY requested_date DESC'''
+    )
+    requests_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'requests': requests_list})
+
+@app.route('/api/staff-kitchen-requests/<req_id>', methods=['GET', 'PUT', 'DELETE'])
+def staff_kitchen_request_detail(req_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        conn.execute('DELETE FROM staff_kitchen_requests WHERE id = ?', (req_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+        
+        if req_row:
+            conn.execute(
+                '''UPDATE staff_kitchen_requests SET position = ?, request_reason = ?, 
+                   requested_start_date = ?, updated_at = ?
+                   WHERE id = ?''',
+                (data.get('position', req_row['position']),
+                 data.get('request_reason', req_row['request_reason']),
+                 data.get('requested_start_date', req_row['requested_start_date']),
+                 datetime.now(),
+                 req_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'request': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Request not found'}), 404
+    
+    # GET single request
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    conn.close()
+    
+    if req_row:
+        return jsonify({'request': dict(req_row)})
+    return jsonify({'error': 'Request not found'}), 404
+
+
+# Manager Approval Endpoint
+@app.route('/api/staff-kitchen-requests/<req_id>/approve', methods=['POST'])
+def approve_staff_kitchen_request(req_id):
+    conn = get_db_connection()
+    data = request.get_json()
+    
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    
+    if not req_row:
+        conn.close()
+        return jsonify({'error': 'Request not found'}), 404
+    
+    # Update request status
+    conn.execute(
+        '''UPDATE staff_kitchen_requests SET approval_status = ?, approved_by = ?, 
+           approval_notes = ?, approval_date = ?, updated_at = ?
+           WHERE id = ?''',
+        ('approved', data.get('approved_by', 'manager'), data.get('approval_notes', ''),
+         datetime.now(), datetime.now(), req_id)
+    )
+    
+    # Create assignment
+    assignment_id = str(uuid.uuid4())
+    conn.execute(
+        '''INSERT INTO staff_kitchen_assignments 
+           (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_id, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (assignment_id, req_row['staff_id'], req_row['staff_name'],
+         req_row['kitchen_id'], req_row['kitchen_name'], req_row['position'],
+         req_id, 'active')
+    )
+    
+    # Update staff's kitchen_id
+    conn.execute('UPDATE staff SET kitchen_id = ? WHERE id = ?', 
+                (req_row['kitchen_id'], req_row['staff_id']))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Request approved and assignment created'})
+
+
+# Manager Rejection Endpoint
+@app.route('/api/staff-kitchen-requests/<req_id>/reject', methods=['POST'])
+def reject_staff_kitchen_request(req_id):
+    conn = get_db_connection()
+    data = request.get_json()
+    
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    
+    if not req_row:
+        conn.close()
+        return jsonify({'error': 'Request not found'}), 404
+    
+    # Update request status
+    conn.execute(
+        '''UPDATE staff_kitchen_requests SET approval_status = ?, approved_by = ?, 
+           rejection_reason = ?, approval_date = ?, updated_at = ?
+           WHERE id = ?''',
+        ('rejected', data.get('approved_by', 'manager'), data.get('rejection_reason', ''),
+         datetime.now(), datetime.now(), req_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Request rejected'})
+
+
+# Staff Kitchen Assignments API
+@app.route('/api/staff-kitchen-assignments', methods=['GET', 'POST'])
+def staff_kitchen_assignments():
+    conn = get_db_connection()
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        assignment_id = str(uuid.uuid4())
+        
+        staff_row = conn.execute('SELECT name FROM staff WHERE id = ?', (data.get('staff_id'),)).fetchone()
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (data.get('kitchen_id'),)).fetchone()
+        
+        if not staff_row or not kitchen_row:
+            conn.close()
+            return jsonify({'error': 'Staff or kitchen not found'}), 404
+        
+        conn.execute(
+            '''INSERT INTO staff_kitchen_assignments 
+               (id, staff_id, staff_name, kitchen_id, kitchen_name, position, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (assignment_id, data.get('staff_id'), staff_row['name'],
+             data.get('kitchen_id'), kitchen_row['name'], data.get('position'),
+             data.get('status', 'active'))
+        )
+        
+        # Update staff's kitchen_id
+        conn.execute('UPDATE staff SET kitchen_id = ? WHERE id = ?',
+                    (data.get('kitchen_id'), data.get('staff_id')))
+        
+        conn.commit()
+        
+        result = {
+            'id': assignment_id,
+            'staff_id': data.get('staff_id'),
+            'staff_name': staff_row['name'],
+            'kitchen_id': data.get('kitchen_id'),
+            'kitchen_name': kitchen_row['name'],
+            'status': data.get('status', 'active')
+        }
+        conn.close()
+        return jsonify({'success': True, 'assignment': result})
+    
+    # GET all assignments
+    cursor = conn.execute(
+        '''SELECT * FROM staff_kitchen_assignments WHERE status = 'active' 
+           ORDER BY assigned_date DESC'''
+    )
+    assignments_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'assignments': assignments_list})
+
+@app.route('/api/staff-kitchen-assignments/<assign_id>', methods=['GET', 'PUT', 'DELETE'])
+def staff_kitchen_assignment_detail(assign_id):
+    conn = get_db_connection()
+    
+    if request.method == 'DELETE':
+        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+        if assign_row:
+            conn.execute('UPDATE staff_kitchen_assignments SET status = ? WHERE id = ?', 
+                        ('inactive', assign_id))
+            # Optionally remove kitchen_id from staff if no other active assignment
+            conn.execute('UPDATE staff SET kitchen_id = NULL WHERE id = ? AND id NOT IN (SELECT staff_id FROM staff_kitchen_assignments WHERE status = "active")',
+                        (assign_row['staff_id'],))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+        
+        if assign_row:
+            conn.execute(
+                '''UPDATE staff_kitchen_assignments SET position = ?, status = ?, 
+                   end_date = ?, notes = ?
+                   WHERE id = ?''',
+                (data.get('position', assign_row['position']),
+                 data.get('status', assign_row['status']),
+                 data.get('end_date', assign_row['end_date']),
+                 data.get('notes', assign_row['notes']),
+                 assign_id)
+            )
+            conn.commit()
+            
+            updated = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+            conn.close()
+            return jsonify({'success': True, 'assignment': dict(updated)})
+        
+        conn.close()
+        return jsonify({'error': 'Assignment not found'}), 404
+    
+    # GET single assignment
+    assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+    conn.close()
+    
+    if assign_row:
+        return jsonify({'assignment': dict(assign_row)})
+    return jsonify({'error': 'Assignment not found'}), 404
+
+
+# Get pending requests for manager approval
+@app.route('/api/staff-kitchen-requests/pending', methods=['GET'])
+def pending_requests():
+    conn = get_db_connection()
+    cursor = conn.execute(
+        '''SELECT * FROM staff_kitchen_requests WHERE approval_status = 'pending' 
+           ORDER BY requested_date DESC'''
+    )
+    requests_list = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'requests': requests_list, 'count': len(requests_list)})
+
 
 if __name__ == '__main__':
+    # Initialize database on startup
+    if not os.path.exists(DB_PATH):
+        init_db()
+    else:
+        # Ensure tables exist even if DB exists
+        init_db()
+    
+    # Migration: Create order_items table if it doesn't exist (for existing databases)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS order_items (
+                id TEXT PRIMARY KEY,
+                order_id TEXT NOT NULL,
+                food_item_id TEXT NOT NULL,
+                food_name TEXT,
+                category_name TEXT,
+                quantity INTEGER NOT NULL,
+                price REAL NOT NULL,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (order_id) REFERENCES orders(id),
+                FOREIGN KEY (food_item_id) REFERENCES food_items(id)
+            )
+        ''')
+        conn.commit()
+        conn.close()
+        print("✓ Database migration completed")
+    except Exception as e:
+        print(f"✓ Migration check: {e}")
+    
     app.run(debug=True, host='0.0.0.0', port=5100)
