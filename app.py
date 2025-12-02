@@ -2,12 +2,15 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import redis
 import json
 import uuid
+import sqlite3
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
 # Initialize Redis connection
 try:
+    conn = sqlite3.connect("my_database.db")
+    
     redis_client = redis.Redis(
         host='localhost',
         port=6379,
