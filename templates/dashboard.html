@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .navbar h1 {
+            font-size: 24px;
+        }
+        
+        .navbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logout-button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .logout-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px 0;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            padding: 15px 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav-item:hover {
+            background: #f8f9fa;
+            border-left-color: #667eea;
+        }
+        
+        .nav-item.active {
+            background: #f0f3ff;
+            border-left-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 18px;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 40px;
+        }
+        
+        .page-section {
+            display: none;
+        }
+        
+        .page-section.active {
+            display: block;
+        }
+        
+        .section-header {
+            margin-bottom: 30px;
+        }
+        
+        .section-header h2 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .section-header p {
+            color: #666;
+        }
+        
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        table th,
+        table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>Manager Dashboard</h1>
+        <div class="user-info">
+            <span>Welcome, {{ username }}!</span>
+            <a href="/logout"><button class="logout-button">Logout</button></a>
+        </div>
+    </nav>
+    
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="overview">
+                    <span class="nav-icon">📊</span>
+                    <span>Overview</span>
+                </li>
+                <li class="nav-item" data-page="kitchens">
+                    <span class="nav-icon">👨‍🍳</span>
+                    <span>Kitchens</span>
+                </li>
+                <li class="nav-item" data-page="categories">
+                    <span class="nav-icon">📁</span>
+                    <span>Menu Categories</span>
+                </li>
+                <li class="nav-item" data-page="food-items">
+                    <span class="nav-icon">🍽️</span>
+                    <span>Food Items</span>
+                </li>
+                <li class="nav-item" data-page="daily-production">
+                    <span class="nav-icon">📅</span>
+                    <span>Daily Production</span>
+                </li>
+                <li class="nav-item" data-page="areas">
+                    <span class="nav-icon">🏢</span>
+                    <span>Dining Areas</span>
+                </li>
+                <li class="nav-item" data-page="tables">
+                    <span class="nav-icon">🪑</span>
+                    <span>Tables</span>
+                </li>
+                <li class="nav-item" data-page="order-types">
+                    <span class="nav-icon">📋</span>
+                    <span>Order Types</span>
+                </li>
+                <li class="nav-item" data-page="orders">
+                    <span class="nav-icon">🛒</span>
+                    <span>Orders</span>
+                </li>
+            </ul>
+        </aside>
+        
+        <div class="content">
+            <!-- Overview Section -->
+            <div class="page-section active" id="overview">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <p>Welcome to your restaurant management system</p>
+                </div>
+                
+                <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="category-count">0</h3>
+                        <p style="color: #666;">Menu Categories</p>
+                    </div>
+                    
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="food-count">0</h3>
+                        <p style="color: #666;">Food Items</p>
+                    </div>
+                    
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="daily-production-count">0</h3>
+                        <p style="color: #666;">Today's Production Items</p>
+                    </div>
+                    
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="category-count">0</h3>
+                        <p style="color: #666;">Menu Categories</p>
+                    </div>
+                    
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="food-count">0</h3>
+                        <p style="color: #666;">Food Items</p>
+                    </div>
+                    
+                    <div class="card" style="text-align: center;">
+                        <h3 style="color: #667eea; font-size: 36px; margin-bottom: 10px;" id="kitchen-count">0</h3>
+                        <p style="color: #666;">Active Kitchens</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kitchens Section -->
+            <div class="page-section" id="kitchens">
+                <div class="section-header">
+                    <h2>Kitchen Management</h2>
+                    <p>Manage your restaurant kitchens and assign food items</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openKitchenModal()">
+                        + Add Kitchen
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="kitchens-table">
+                            <thead>
+                                <tr>
+                                    <th>Kitchen Name</th>
+                                    <th>Location</th>
+                                    <th>Assigned Items</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kitchens-tbody">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <p>No kitchens yet. Add your first kitchen!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Menu Categories Section -->
+            <div class="page-section" id="categories">
+                <div class="section-header">
+                    <h2>Menu Categories</h2>
+                    <p>Manage your restaurant menu categories</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openCategoryModal()">
+                        + Add Category
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="categories-table">
+                            <thead>
+                                <tr>
+                                    <th>Category Name</th>
+                                    <th>Description</th>
+                                    <th>Items Count</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="categories-tbody">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <p>No categories yet. Add your first category!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Food Items Section -->
+            <div class="page-section" id="food-items">
+                <div class="section-header">
+                    <h2>Food Items</h2>
+                    <p>Manage your menu items and specifications</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openFoodModal()">
+                        + Add Food Item
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="food-table">
+                            <thead>
+                                <tr>
+                                    <th>Food Name</th>
+                                    <th>Category</th>
+                                    <th>Kitchen</th>
+                                    <th>Price</th>
+                                    <th>Specifications</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="food-tbody">
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <p>No food items yet. Add your first item!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Daily Production Section -->
+            <div class="page-section" id="daily-production">
+                <div class="section-header">
+                    <h2>Daily Production Planning</h2>
+                    <p>Set daily meal production quantities for each food item</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div>
+                        <input type="date" id="production-date" class="btn" style="padding: 10px;" value="">
+                    </div>
+                    <button class="btn btn-primary" onclick="openProductionModal()">
+                        + Add Production Item
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="production-table">
+                            <thead>
+                                <tr>
+                                    <th>Food Item</th>
+                                    <th>Category</th>
+                                    <th>Planned Quantity</th>
+                                    <th>Produced</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="production-tbody">
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <p>No production items for today. Add your first production plan!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">Production Summary</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Items Planned</p>
+                            <h4 style="color: #667eea; font-size: 24px;" id="total-planned">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Produced</p>
+                            <h4 style="color: #28a745; font-size: 24px;" id="total-produced">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Remaining</p>
+                            <h4 style="color: #ffc107; font-size: 24px;" id="total-remaining">0</h4>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                            <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Completion Rate</p>
+                            <h4 style="color: #667eea; font-size: 24px;" id="completion-rate">0%</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Areas Section -->
+            <div class="page-section" id="areas">
+                <div class="section-header">
+                    <h2>Dining Areas</h2>
+                    <p>Manage all dining areas in your restaurant</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openAreaModal()">
+                        + Add Area
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="areas-table">
+                            <thead>
+                                <tr>
+                                    <th>Area Name</th>
+                                    <th>Description</th>
+                                    <th>Tables</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="areas-tbody">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <p>No areas yet. Add your first area!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tables Section -->
+            <div class="page-section" id="tables">
+                <div class="section-header">
+                    <h2>Tables Management</h2>
+                    <p>Manage all dining tables and their assignments</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openTableModal()">
+                        + Add Table
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="tables-table">
+                            <thead>
+                                <tr>
+                                    <th>Table #</th>
+                                    <th>Area</th>
+                                    <th>Capacity</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tables-tbody">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <p>No tables yet. Add your first table!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order Types Section -->
+            <div class="page-section" id="order-types">
+                <div class="section-header">
+                    <h2>Order Types</h2>
+                    <p>Manage order types and delivery methods</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openOrderTypeModal()">
+                        + Add Order Type
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="order-types-table">
+                            <thead>
+                                <tr>
+                                    <th>Order Type</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="order-types-tbody">
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="empty-state">
+                                            <p>No order types yet. Add your first order type!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders Section -->
+            <div class="page-section" id="orders">
+                <div class="section-header">
+                    <h2>Orders Management</h2>
+                    <p>View and manage all customer orders</p>
+                </div>
+                
+                <div class="action-bar">
+                    <div></div>
+                    <button class="btn btn-primary" onclick="openOrderModal()">
+                        + New Order
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table id="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Table</th>
+                                    <th>Order Type</th>
+                                    <th>Customer</th>
+                                    <th>Items</th>
+                                    <th>Amount ($)</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-tbody">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <p>No orders yet. Create your first order!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Category Modal -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Menu Category</h3>
+                <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <div class="form-group">
+                    <label>Category Name *</label>
+                    <input type="text" id="categoryName" required placeholder="e.g., Appetizers, Main Course, Desserts">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="categoryDescription" placeholder="Brief description of this category"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="categoryStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Food Item Modal -->
+    <div class="modal" id="foodModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Food Item</h3>
+                <button class="close-btn" onclick="closeFoodModal()">&times;</button>
+            </div>
+            <form id="foodForm" onsubmit="saveFoodItem(event)">
+                <div class="form-group">
+                    <label>Food Name *</label>
+                    <input type="text" id="foodName" required placeholder="e.g., Margherita Pizza">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="foodCategory" required>
+                            <option value="">Select Category</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Kitchen *</label>
+                        <select id="foodKitchen" required>
+                            <option value="">Select Kitchen</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price ($) *</label>
+                        <input type="number" id="foodPrice" required step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="foodDescription" placeholder="Describe this food item"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Specifications</label>
+                    <textarea id="foodSpecs" placeholder="e.g., Serving size: 1 plate, Calories: 450, Spice level: Medium, Allergens: Gluten, Dairy"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="foodStatus">
+                        <option value="available">Available</option>
+                        <option value="unavailable">Unavailable</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeFoodModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Food Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Production Modal -->
+    <div class="modal" id="productionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Daily Production</h3>
+                <button class="close-btn" onclick="closeProductionModal()">&times;</button>
+            </div>
+            <form id="productionForm" onsubmit="saveProduction(event)">
+                <div class="form-group">
+                    <label>Food Item *</label>
+                    <select id="productionFoodItem" required onchange="updateProductionDetails()">
+                        <option value="">Select Food Item</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date *</label>
+                    <input type="date" id="productionDateInput" required>
+                </div>
+                <div class="form-group">
+                    <label>Planned Quantity *</label>
+                    <input type="number" id="productionQuantity" required min="1" placeholder="e.g., 100">
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Number of items to prepare today</p>
+                </div>
+                <div class="form-group">
+                    <label>Already Produced</label>
+                    <input type="number" id="productionProduced" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="productionNotes" placeholder="Any special notes or instructions"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductionModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Production Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Category Modal -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Menu Category</h3>
+                <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <div class="form-group">
+                    <label>Category Name *</label>
+                    <input type="text" id="categoryName" required placeholder="e.g., Appetizers, Main Course, Desserts">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="categoryDescription" placeholder="Brief description of this category"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="categoryStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Food Item Modal -->
+    <div class="modal" id="foodModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Food Item</h3>
+                <button class="close-btn" onclick="closeFoodModal()">&times;</button>
+            </div>
+            <form id="foodForm" onsubmit="saveFoodItem(event)">
+                <div class="form-group">
+                    <label>Food Name *</label>
+                    <input type="text" id="foodName" required placeholder="e.g., Margherita Pizza">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="foodCategory" required>
+                            <option value="">Select Category</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kitchen *</label>
+                        <select id="foodKitchen" required>
+                            <option value="">Select Kitchen</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price ($) *</label>
+                        <input type="number" id="foodPrice" required step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="foodStatus">
+                            <option value="available">Available</option>
+                            <option value="unavailable">Unavailable</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="foodDescription" placeholder="Describe this food item"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Specifications</label>
+                    <textarea id="foodSpecs" placeholder="e.g., Serving size: 1 plate, Calories: 450, Spice level: Medium, Allergens: Gluten, Dairy"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeFoodModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Food Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Kitchen Modal -->
+    <div class="modal" id="kitchenModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Kitchen</h3>
+                <button class="close-btn" onclick="closeKitchenModal()">&times;</button>
+            </div>
+            <form id="kitchenForm" onsubmit="saveKitchen(event)">
+                <div class="form-group">
+                    <label>Kitchen Name *</label>
+                    <input type="text" id="kitchenName" required placeholder="e.g., Main Kitchen, Grill Station, Dessert Corner">
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <input type="text" id="kitchenLocation" placeholder="e.g., Ground Floor, Section A">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="kitchenDescription" placeholder="Brief description of this kitchen"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="kitchenStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeKitchenModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Kitchen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Area Modal -->
+    <div class="modal" id="areaModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Area</h3>
+                <button class="close-btn" onclick="closeAreaModal()">&times;</button>
+            </div>
+            <form id="areaForm" onsubmit="saveArea(event)">
+                <div class="form-group">
+                    <label>Area Name *</label>
+                    <input type="text" id="areaName" required placeholder="e.g., Main Hall, Outdoor Patio, VIP Lounge">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="areaDescription" placeholder="Brief description of this area"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="areaStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAreaModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Area</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Table Modal -->
+    <div class="modal" id="tableModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Table</h3>
+                <button class="close-btn" onclick="closeTableModal()">&times;</button>
+            </div>
+            <form id="tableForm" onsubmit="saveTable(event)">
+                <div class="form-group">
+                    <label>Table Number *</label>
+                    <input type="text" id="tableNumber" required placeholder="e.g., T01, T02, T03">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Area *</label>
+                        <select id="tableArea" required>
+                            <option value="">Select Area</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Capacity (Seats) *</label>
+                        <input type="number" id="tableCapacity" required min="1" max="20" placeholder="e.g., 4">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="tableStatus">
+                        <option value="available">Available</option>
+                        <option value="occupied">Occupied</option>
+                        <option value="reserved">Reserved</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeTableModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Table</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Order Type Modal -->
+    <div class="modal" id="orderTypeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Order Type</h3>
+                <button class="close-btn" onclick="closeOrderTypeModal()">&times;</button>
+            </div>
+            <form id="orderTypeForm" onsubmit="saveOrderType(event)">
+                <div class="form-group">
+                    <label>Order Type Name *</label>
+                    <input type="text" id="orderTypeName" required placeholder="e.g., Dine-in, Takeaway, Delivery">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="orderTypeDescription" placeholder="Brief description of this order type"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="orderTypeStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeOrderTypeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Order Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Order Modal -->
+    <div class="modal" id="orderModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Order</h3>
+                <button class="close-btn" onclick="closeOrderModal()">&times;</button>
+            </div>
+            <form id="orderForm" onsubmit="saveOrder(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Order Number *</label>
+                        <input type="text" id="orderNumber" required placeholder="e.g., ORD-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Table *</label>
+                        <select id="orderTable" required>
+                            <option value="">Select Table</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Order Type *</label>
+                        <select id="orderType" required>
+                            <option value="">Select Order Type</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Customer Name</label>
+                        <input type="text" id="orderCustomer" placeholder="Customer name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Number of Items *</label>
+                        <input type="number" id="orderItemsCount" required min="1" placeholder="e.g., 5">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Amount ($) *</label>
+                        <input type="number" id="orderTotalAmount" required step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="orderStatus">
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="preparing">Preparing</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="orderNotes" placeholder="Special requests or notes"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Set today's date as default
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('production-date').value = today;
+
+            document.getElementById('productionDateInput').value = today;
+            
+            loadKitchens();
+            loadCategories();
+            loadFoodItems();
+            loadDailyProduction();
+            loadAreas();
+            loadTables();
+            loadOrderTypes();
+            loadOrders();
+            updateCounts();
+            
+            // Restore the last viewed page
+            const lastPage = localStorage.getItem('activePage') || 'overview';
+            const lastNav = document.querySelector(`[data-page="${lastPage}"]`);
+            if (lastNav) {
+                lastNav.click();
+            }
+        });
+        
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+                
+                this.classList.add('active');
+                const page = this.getAttribute('data-page');
+                document.getElementById(page).classList.add('active');
+                
+                // Save the current page to localStorage
+                localStorage.setItem('activePage', page);
+                
+                if (page === 'daily-production') {
+                    loadDailyProduction();
+                } else if (page === 'areas') {
+                    loadAreas();
+                } else if (page === 'tables') {
+                    loadTables();
+                } else if (page === 'order-types') {
+                    loadOrderTypes();
+                } else if (page === 'orders') {
+                    loadOrders();
+                }
+            });
+        });
+        
+        // Date change for production
+        document.getElementById('production-date').addEventListener('change', function() {
+            loadDailyProduction();
+        });
+        
+        // Category Modal Functions
+        function openCategoryModal() {
+            document.getElementById('categoryModal').classList.add('active');
+        }
+        
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+            document.getElementById('categoryForm').reset();
+        }
+        
+        // Kitchen Modal Functions
+        function openKitchenModal() {
+            document.getElementById('kitchenModal').classList.add('active');
+        }
+        
+        function closeKitchenModal() {
+            document.getElementById('kitchenModal').classList.remove('active');
+            document.getElementById('kitchenForm').reset();
+        }
+        
+        // Food Modal Functions
+        function openFoodModal() {
+            loadCategoryOptions();
+            loadKitchenOptions();
+            setTimeout(() => {
+                document.getElementById('foodModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeFoodModal() {
+            document.getElementById('foodModal').classList.remove('active');
+            document.getElementById('foodForm').reset();
+        }
+        
+        // Production Modal Functions
+        function openProductionModal() {
+            loadFoodItemOptions();
+            const date = document.getElementById('production-date').value;
+            document.getElementById('productionDateInput').value = date;
+            setTimeout(() => {
+                document.getElementById('productionModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeProductionModal() {
+            document.getElementById('productionModal').classList.remove('active');
+            document.getElementById('productionForm').reset();
+        }
+        
+        // Load food item options for production form
+        function loadFoodItemOptions() {
+            fetch('/api/food-items')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('productionFoodItem');
+                    select.innerHTML = '<option value="">Select Food Item</option>';
+                    if (data.food_items && data.food_items.length > 0) {
+                        data.food_items.forEach(item => {
+                            select.innerHTML += `<option value="${item.id}" data-name="${item.name}" data-category="${item.category_name}">${item.name} (${item.category_name})</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading food items:', error));
+        }
+        
+        // Save Production
+        function saveProduction(event) {
+            event.preventDefault();
+            
+            const select = document.getElementById('productionFoodItem');
+            if (!select.value) {
+                alert('Please select a food item');
+                return;
+            }
+            
+            const selectedOption = select.options[select.selectedIndex];
+            
+            const production = {
+                food_id: select.value,
+                food_name: selectedOption.getAttribute('data-name'),
+                category_name: selectedOption.getAttribute('data-category'),
+                date: document.getElementById('productionDateInput').value,
+                planned_quantity: parseInt(document.getElementById('productionQuantity').value),
+                produced: parseInt(document.getElementById('productionProduced').value) || 0,
+                notes: document.getElementById('productionNotes').value
+            };
+            
+            fetch('/api/daily-production', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(production)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeProductionModal();
+                    loadDailyProduction();
+                    updateCounts();
+                    alert('Production item saved successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save production item'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving production item: ' + error);
+            });
+        }
+        
+        // Load Daily Production
+        function loadDailyProduction() {
+            const date = document.getElementById('production-date').value;
+            fetch(`/api/daily-production?date=${date}`)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('production-tbody');
+                    if (data.production_items.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No production items for this date. Add your first production plan!</p></div></td></tr>';
+                        updateProductionSummary([]);
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.production_items.map(item => {
+                        const remaining = item.planned_quantity - item.produced;
+                        const status = item.produced >= item.planned_quantity ? 'Complete' : 'In Progress';
+                        const statusClass = status === 'Complete' ? 'success' : 'warning';
+                        
+                        return `
+                        <tr>
+                            <td><strong>${item.food_name}</strong></td>
+                            <td>${item.category_name}</td>
+                            <td>${item.planned_quantity}</td>
+                            <td>
+                                <input type="number" value="${item.produced}" min="0" max="${item.planned_quantity}" 
+                                    style="width: 80px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;"
+                                    onchange="updateProduced('${item.id}', this.value)">
+                            </td>
+                            <td>${remaining}</td>
+                            <td><span class="badge badge-${statusClass}">${status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteProduction('${item.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `}).join('');
+                    
+                    updateProductionSummary(data.production_items);
+                })
+                .catch(error => console.error('Error loading daily production:', error));
+        }
+        
+        // Update production summary
+        function updateProductionSummary(items) {
+            const totalPlanned = items.reduce((sum, item) => sum + item.planned_quantity, 0);
+            const totalProduced = items.reduce((sum, item) => sum + item.produced, 0);
+            const totalRemaining = totalPlanned - totalProduced;
+            const completionRate = totalPlanned > 0 ? Math.round((totalProduced / totalPlanned) * 100) : 0;
+            
+            document.getElementById('total-planned').textContent = totalPlanned;
+            document.getElementById('total-produced').textContent = totalProduced;
+            document.getElementById('total-remaining').textContent = totalRemaining;
+            document.getElementById('completion-rate').textContent = completionRate + '%';
+        }
+        
+        // Update produced quantity
+        function updateProduced(id, produced) {
+            fetch(`/api/daily-production/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({produced: parseInt(produced)})
+            })
+            .then(res => res.json())
+            .then(() => {
+                loadDailyProduction();
+            })
+            .catch(error => console.error('Error updating production:', error));
+        }
+        
+        // Delete Production
+        function deleteProduction(id) {
+            if (confirm('Are you sure you want to delete this production item?')) {
+                fetch(`/api/daily-production/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadDailyProduction();
+                        updateCounts();
+                    })
+                    .catch(error => console.error('Error deleting production:', error));
+            }
+        }
+        
+        // Area Modal Functions
+        function openAreaModal() {
+            document.getElementById('areaModal').classList.add('active');
+        }
+        
+        function closeAreaModal() {
+            document.getElementById('areaModal').classList.remove('active');
+            document.getElementById('areaForm').reset();
+        }
+        
+        // Table Modal Functions
+        function openTableModal() {
+            loadAreaOptions();
+            setTimeout(() => {
+                document.getElementById('tableModal').classList.add('active');
+            }, 100);
+        }
+        
+        function closeTableModal() {
+            document.getElementById('tableModal').classList.remove('active');
+            document.getElementById('tableForm').reset();
+        }
+        
+        // Load area options for table form
+        function loadAreaOptions() {
+            fetch('/api/areas')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('tableArea');
+                    select.innerHTML = '<option value="">Select Area</option>';
+                    if (data.areas && data.areas.length > 0) {
+                        data.areas.forEach(area => {
+                            select.innerHTML += `<option value="${area.id}" data-name="${area.name}">${area.name}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading areas:', error));
+        }
+        
+        // Save Area
+        function saveArea(event) {
+            event.preventDefault();
+            
+            const area = {
+                name: document.getElementById('areaName').value,
+                description: document.getElementById('areaDescription').value,
+                status: document.getElementById('areaStatus').value
+            };
+            
+            fetch('/api/areas', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(area)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeAreaModal();
+                    loadAreas();
+                    alert('Area added successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save area'));
+                }
+            })
+            .catch(error => alert('Error saving area: ' + error));
+        }
+        
+        // Save Table
+        function saveTable(event) {
+            event.preventDefault();
+            
+            const areaSelect = document.getElementById('tableArea');
+            if (!areaSelect.value) {
+                alert('Please select an area');
+                return;
+            }
+            
+            const selectedArea = areaSelect.options[areaSelect.selectedIndex];
+            
+            const table = {
+                number: document.getElementById('tableNumber').value,
+                area_id: areaSelect.value,
+                area_name: selectedArea.getAttribute('data-name'),
+                capacity: parseInt(document.getElementById('tableCapacity').value),
+                status: document.getElementById('tableStatus').value
+            };
+            
+            fetch('/api/tables', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(table)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeTableModal();
+                    loadTables();
+                    loadAreas();
+                    alert('Table added successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save table'));
+                }
+            })
+            .catch(error => alert('Error saving table: ' + error));
+        }
+        
+        // Load Areas
+        function loadAreas() {
+            fetch('/api/areas')
+                .then(res => res.json())
+                .then(data => {
+                    console.log('Areas data received:', data);
+                    const tbody = document.getElementById('areas-tbody');
+                    if (!data.areas || data.areas.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>No areas yet. Add your first area!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.areas.map(area => `
+                        <tr>
+                            <td><strong>${area.name}</strong></td>
+                            <td>${area.description || '-'}</td>
+                            <td>${area.tables_count || 0}</td>
+                            <td><span class="badge badge-${area.status === 'active' ? 'success' : 'warning'}">${area.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteArea('${area.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading areas:', error);
+                    const tbody = document.getElementById('areas-tbody');
+                    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>Error loading areas</p></div></td></tr>';
+                });
+        }
+        
+        // Load Tables
+        function loadTables() {
+            fetch('/api/tables')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('tables-tbody');
+                    if (data.tables.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>No tables yet. Add your first table!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.tables.map(table => `
+                        <tr>
+                            <td><strong>${table.number}</strong></td>
+                            <td>${table.area_name}</td>
+                            <td>${table.capacity}</td>
+                            <td><span class="badge badge-${table.status === 'available' ? 'success' : 'warning'}">${table.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteTable('${table.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+        }
+        
+        // Delete Area
+        function deleteArea(id) {
+            if (confirm('Are you sure you want to delete this area?')) {
+                fetch(`/api/areas/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadAreas();
+                    })
+                    .catch(error => console.error('Error deleting area:', error));
+            }
+        }
+        
+        // Delete Table
+        function deleteTable(id) {
+            if (confirm('Are you sure you want to delete this table?')) {
+                fetch(`/api/tables/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadTables();
+                        loadAreas();
+                    })
+                    .catch(error => console.error('Error deleting table:', error));
+            }
+        }
+        
+        // Order Type Modal Functions
+        function openOrderTypeModal() {
+            document.getElementById('orderTypeModal').classList.add('active');
+        }
+        
+        function closeOrderTypeModal() {
+            document.getElementById('orderTypeModal').classList.remove('active');
+            document.getElementById('orderTypeForm').reset();
+        }
+        
+        // Load Order Types
+        function loadOrderTypes() {
+            fetch('/api/order-types')
+                .then(res => res.json())
+                .then(data => {
+                    console.log('Order types data received:', data);
+                    const tbody = document.getElementById('order-types-tbody');
+                    if (!data.order_types || data.order_types.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>No order types yet. Add your first order type!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.order_types.map(orderType => `
+                        <tr>
+                            <td><strong>${orderType.name}</strong></td>
+                            <td>${orderType.description || '-'}</td>
+                            <td><span class="badge badge-${orderType.status === 'active' ? 'success' : 'warning'}">${orderType.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteOrderType('${orderType.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading order types:', error);
+                    const tbody = document.getElementById('order-types-tbody');
+                    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>Error loading order types</p></div></td></tr>';
+                });
+        }
+        
+        // Save Order Type
+        function saveOrderType(event) {
+            event.preventDefault();
+            const orderType = {
+                name: document.getElementById('orderTypeName').value,
+                description: document.getElementById('orderTypeDescription').value,
+                status: document.getElementById('orderTypeStatus').value
+            };
+            
+            fetch('/api/order-types', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(orderType)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeOrderTypeModal();
+                    loadOrderTypes();
+                    alert('Order type saved successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save order type'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving order type: ' + error);
+            });
+        }
+        
+        // Delete Order Type
+        function deleteOrderType(id) {
+            if (confirm('Are you sure you want to delete this order type?')) {
+                fetch(`/api/order-types/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadOrderTypes();
+                    })
+                    .catch(error => console.error('Error deleting order type:', error));
+            }
+        }
+        
+        // Order Modal Functions
+        function openOrderModal() {
+            loadTableOptions();
+            loadOrderTypeOptions();
+            document.getElementById('orderModal').classList.add('active');
+        }
+        
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('active');
+            document.getElementById('orderForm').reset();
+        }
+        
+        // Load Orders
+        function loadOrders() {
+            fetch('/api/orders')
+                .then(res => res.json())
+                .then(data => {
+                    console.log('Orders data received:', data);
+                    const tbody = document.getElementById('orders-tbody');
+                    if (!data.orders || data.orders.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No orders yet. Create your first order!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.orders.map(order => `
+                        <tr>
+                            <td><strong>${order.order_number}</strong></td>
+                            <td>${order.table_number || '-'}</td>
+                            <td>${order.order_type_name || '-'}</td>
+                            <td>${order.customer_name || '-'}</td>
+                            <td>${order.items_count}</td>
+                            <td>$${order.total_amount.toFixed(2)}</td>
+                            <td><span class="badge badge-${order.status === 'completed' ? 'success' : order.status === 'cancelled' ? 'danger' : 'warning'}">${order.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteOrder('${order.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading orders:', error);
+                    const tbody = document.getElementById('orders-tbody');
+                    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Error loading orders</p></div></td></tr>';
+                });
+        }
+        
+        // Save Order
+        function saveOrder(event) {
+            event.preventDefault();
+            const tableSelect = document.getElementById('orderTable');
+            const selectedTableOption = tableSelect.options[tableSelect.selectedIndex];
+            const tableNumber = selectedTableOption.getAttribute('data-number') || selectedTableOption.text;
+            
+            const orderTypeSelect = document.getElementById('orderType');
+            const selectedOrderTypeOption = orderTypeSelect.options[orderTypeSelect.selectedIndex];
+            const orderTypeName = selectedOrderTypeOption.text;
+            
+            const order = {
+                order_number: document.getElementById('orderNumber').value,
+                table_id: document.getElementById('orderTable').value,
+                table_number: tableNumber,
+                order_type_id: document.getElementById('orderType').value,
+                order_type_name: orderTypeName,
+                customer_name: document.getElementById('orderCustomer').value,
+                items_count: parseInt(document.getElementById('orderItemsCount').value),
+                total_amount: parseFloat(document.getElementById('orderTotalAmount').value),
+                status: document.getElementById('orderStatus').value,
+                notes: document.getElementById('orderNotes').value,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            fetch('/api/orders', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(order)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeOrderModal();
+                    loadOrders();
+                    alert('Order created successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not create order'));
+                }
+            })
+            .catch(error => {
+                alert('Error creating order: ' + error);
+            });
+        }
+        
+        // Delete Order
+        function deleteOrder(id) {
+            if (confirm('Are you sure you want to delete this order?')) {
+                fetch(`/api/orders/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadOrders();
+                    })
+                    .catch(error => console.error('Error deleting order:', error));
+            }
+        }
+        
+        // Load table options for order form
+        function loadTableOptions() {
+            fetch('/api/tables')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('orderTable');
+                    select.innerHTML = '<option value="">Select Table</option>';
+                    if (data.tables && data.tables.length > 0) {
+                        data.tables.forEach(table => {
+                            select.innerHTML += `<option value="${table.id}" data-number="${table.number}">${table.number} (${table.area_name})</option>`;
+                        });
+                    }
+                });
+        }
+        
+        // Load order type options for order form
+        function loadOrderTypeOptions() {
+            fetch('/api/order-types')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('orderType');
+                    select.innerHTML = '<option value="">Select Order Type</option>';
+                    if (data.order_types && data.order_types.length > 0) {
+                        data.order_types.forEach(orderType => {
+                            select.innerHTML += `<option value="${orderType.id}">${orderType.name}</option>`;
+                        });
+                    }
+                });
+        }
+        
+        // Load category options for food form
+        function loadCategoryOptions() {
+            fetch('/api/categories')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('foodCategory');
+                    select.innerHTML = '<option value="">Select Category</option>';
+                    data.categories.forEach(cat => {
+                        select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                    });
+                });
+        }
+        
+        // Load kitchen options for food form
+        function loadKitchenOptions() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('foodKitchen');
+                    select.innerHTML = '<option value="">Select Kitchen</option>';
+                    if (data.kitchens && data.kitchens.length > 0) {
+                        data.kitchens.forEach(kitchen => {
+                            select.innerHTML += `<option value="${kitchen.id}" data-name="${kitchen.name}">${kitchen.name}</option>`;
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading kitchens:', error));
+        }
+        
+        // Save Category
+        function saveCategory(event) {
+            event.preventDefault();
+            
+            const category = {
+                name: document.getElementById('categoryName').value,
+                description: document.getElementById('categoryDescription').value,
+                status: document.getElementById('categoryStatus').value
+            };
+            
+            fetch('/api/categories', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(category)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeCategoryModal();
+                    loadCategories();
+                    updateCounts();
+                }
+            });
+        }
+        
+        // Save Kitchen
+        function saveKitchen(event) {
+            event.preventDefault();
+            
+            const kitchen = {
+                name: document.getElementById('kitchenName').value,
+                location: document.getElementById('kitchenLocation').value,
+                description: document.getElementById('kitchenDescription').value,
+                status: document.getElementById('kitchenStatus').value
+            };
+            
+            fetch('/api/kitchens', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(kitchen)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeKitchenModal();
+                    loadKitchens();
+                    updateCounts();
+                }
+            });
+        }
+        
+        // Save Food Item
+        function saveFoodItem(event) {
+            event.preventDefault();
+            
+            const categorySelect = document.getElementById('foodCategory');
+            const kitchenSelect = document.getElementById('foodKitchen');
+            
+            // Validate category is selected
+            if (!categorySelect.value) {
+                alert('Please select a category');
+                return;
+            }
+            
+            // Validate kitchen is selected (MANDATORY)
+            if (!kitchenSelect.value) {
+                alert('Please select a kitchen - Kitchen assignment is mandatory!');
+                return;
+            }
+            
+            const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+            const selectedKitchen = kitchenSelect.options[kitchenSelect.selectedIndex];
+            
+            const foodItem = {
+                name: document.getElementById('foodName').value,
+                category_id: categorySelect.value,
+                category_name: selectedCategory.text,
+                kitchen_id: kitchenSelect.value,
+                kitchen_name: selectedKitchen.getAttribute('data-name'),
+                price: parseFloat(document.getElementById('foodPrice').value),
+                description: document.getElementById('foodDescription').value,
+                specifications: document.getElementById('foodSpecs').value,
+                status: document.getElementById('foodStatus').value
+            };
+            
+            fetch('/api/food-items', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(foodItem)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeFoodModal();
+                    loadFoodItems();
+                    updateCounts();
+                    alert('Food item saved successfully with kitchen assignment!');
+                } else {
+                    alert('Error: ' + (data.error || 'Could not save food item'));
+                }
+            })
+            .catch(error => {
+                alert('Error saving food item: ' + error);
+            });
+        }
+        
+        // Load Kitchens
+        function loadKitchens() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('kitchens-tbody');
+                    if (data.kitchens.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>No kitchens yet. Add your first kitchen!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.kitchens.map(kitchen => `
+                        <tr>
+                            <td><strong>${kitchen.name}</strong></td>
+                            <td>${kitchen.location || '-'}</td>
+                            <td>${kitchen.items_count || 0}</td>
+                            <td><span class="badge badge-${kitchen.status === 'active' ? 'success' : 'warning'}">${kitchen.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteKitchen('${kitchen.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+        }
+        
+        // Load Categories
+        function loadCategories() {
+            fetch('/api/categories')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('categories-tbody');
+                    if (data.categories.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>No categories yet. Add your first category!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.categories.map(cat => `
+                        <tr>
+                            <td><strong>${cat.name}</strong></td>
+                            <td>${cat.description || '-'}</td>
+                            <td>${cat.items_count || 0}</td>
+                            <td><span class="badge badge-${cat.status === 'active' ? 'success' : 'warning'}">${cat.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteCategory('${cat.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+        }
+        
+        // Load Food Items
+        function loadFoodItems() {
+            fetch('/api/food-items')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('food-tbody');
+                    if (data.food_items.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No food items yet. Add your first item!</p></div></td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.food_items.map(item => `
+                        <tr>
+                            <td><strong>${item.name}</strong></td>
+                            <td>${item.category_name}</td>
+                            <td>${item.kitchen_name || 'Not Assigned'}</td>
+                            <td>$${parseFloat(item.price).toFixed(2)}</td>
+                            <td>${item.specifications ? item.specifications.substring(0, 50) + '...' : '-'}</td>
+                            <td><span class="badge badge-${item.status === 'available' ? 'success' : 'warning'}">${item.status}</span></td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteFoodItem('${item.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+        }
+        
+        // Delete Functions
+        function deleteKitchen(id) {
+            if (confirm('Are you sure you want to delete this kitchen?')) {
+                fetch(`/api/kitchens/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadKitchens();
+                        updateCounts();
+                    });
+            }
+        }
+        
+        function deleteCategory(id) {
+            if (confirm('Are you sure you want to delete this category?')) {
+                fetch(`/api/categories/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadCategories();
+                        updateCounts();
+                    });
+            }
+        }
+        
+        function deleteFoodItem(id) {
+            if (confirm('Are you sure you want to delete this food item?')) {
+                fetch(`/api/food-items/${id}`, {method: 'DELETE'})
+                    .then(res => res.json())
+                    .then(() => {
+                        loadFoodItems();
+                        updateCounts();
+                    });
+            }
+        }
+        
+        // Update Dashboard Counts
+        function updateCounts() {
+            fetch('/api/kitchens')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('kitchen-count').textContent = data.kitchens.length;
+                });
+            
+            fetch('/api/categories')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('category-count').textContent = data.categories.length;
+                });
+            
+            fetch('/api/food-items')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('food-count').textContent = data.food_items.length;
+                });
+            
+            const date = document.getElementById('production-date').value;
+            fetch(`/api/daily-production?date=${date}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('daily-production-count').textContent = data.production_items.length;
+                });
+        }
+    </script>
+</body>
+</html>
