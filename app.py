@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
 # SQLite database setup
-DB_PATH = "my_database.db"
+DB_PATH = "my_db.db"
 
 def get_db_connection():
     """Get database connection"""
