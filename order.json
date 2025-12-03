@@ -1,0 +1,51 @@
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "order_number": "ORD-2025-001",
+  "table_id": "table-001",
+  "table_number": "5",
+  "table_area": "Main Dining",
+  "order_type_id": "type-001",
+  "order_type_name": "Dine-in",
+  "customer_name": "John Doe",
+  "items_count": 3,
+  "total_amount": 45.99,
+  "status": "confirmed",
+  "notes": "No onions on the burger, extra sauce on the side",
+  "created_at": "2025-12-03T14:30:00",
+  "updated_at": "2025-12-03T14:35:00",
+  "items": [
+    {
+      "id": "item-001",
+      "order_id": "550e8400-e29b-41d4-a716-446655440000",
+      "food_item_id": "food-101",
+      "food_name": "Grilled Chicken Burger",
+      "category_name": "Burgers",
+      "quantity": 1,
+      "price": 12.99,
+      "notes": "No onions, extra sauce on the side",
+      "created_at": "2025-12-03T14:30:00"
+    },
+    {
+      "id": "item-002",
+      "order_id": "550e8400-e29b-41d4-a716-446655440000",
+      "food_item_id": "food-102",
+      "food_name": "Caesar Salad",
+      "category_name": "Salads",
+      "quantity": 1,
+      "price": 9.99,
+      "notes": "Dressing on the side",
+      "created_at": "2025-12-03T14:30:00"
+    },
+    {
+      "id": "item-003",
+      "order_id": "550e8400-e29b-41d4-a716-446655440000",
+      "food_item_id": "food-103",
+      "food_name": "Iced Tea",
+      "category_name": "Beverages",
+      "quantity": 2,
+      "price": 2.99,
+      "notes": "Extra ice",
+      "created_at": "2025-12-03T14:30:00"
+    }
+  ]
+}

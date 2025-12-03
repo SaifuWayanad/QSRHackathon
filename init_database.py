@@ -129,9 +129,27 @@ def init_database():
             quantity INTEGER NOT NULL,
             price REAL NOT NULL,
             notes TEXT,
+            status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (order_id) REFERENCES orders(id),
             FOREIGN KEY (food_item_id) REFERENCES food_items(id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS kitchen_assignments (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            kitchen_id TEXT NOT NULL,
+            order_id TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+            FOREIGN KEY (item_id) REFERENCES order_items(id),
+            FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+            FOREIGN KEY (order_id) REFERENCES orders(id),
+            UNIQUE(item_id, kitchen_id, order_id)
         )
     ''')
     

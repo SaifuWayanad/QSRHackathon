@@ -5,6 +5,13 @@ import uuid
 from datetime import datetime
 import os
 
+# Import stream database integration
+try:
+    from stream_integration import push_order_to_stream
+except ImportError:
+    print("⚠️  Stream integration not available (optional)")
+    push_order_to_stream = None
+
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
@@ -755,8 +762,14 @@ def orders():
             'status': data.get('status', 'pending'),
             'notes': data.get('notes', ''),
             'created_at': now,
-            'updated_at': now
+            'updated_at': now,
+            'items': [dict(i) if isinstance(i, sqlite3.Row) else i for i in data.get('items', [])]
         }
+        
+        # Push order to stream database for Kitchen Agent processing
+        if push_order_to_stream:
+            push_order_to_stream(order)
+        
         conn.close()
         return jsonify({'success': True, 'order': order})
     
@@ -1630,11 +1643,43 @@ if __name__ == '__main__':
                 quantity INTEGER NOT NULL,
                 price REAL NOT NULL,
                 notes TEXT,
+                status TEXT DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (order_id) REFERENCES orders(id),
                 FOREIGN KEY (food_item_id) REFERENCES food_items(id)
             )
         ''')
+        
+        # Add status column if it doesn't exist (for existing tables)
+        try:
+            cursor.execute('ALTER TABLE order_items ADD COLUMN status TEXT DEFAULT "pending"')
+        except:
+            pass  # Column already exists
+        
+        # Add updated_at column if it doesn't exist
+        try:
+            cursor.execute('ALTER TABLE order_items ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        except:
+            pass  # Column already exists
+        
+        # Create kitchen_assignments table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS kitchen_assignments (
+                id TEXT PRIMARY KEY,
+                item_id TEXT NOT NULL,
+                kitchen_id TEXT NOT NULL,
+                order_id TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                FOREIGN KEY (item_id) REFERENCES order_items(id),
+                FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+                FOREIGN KEY (order_id) REFERENCES orders(id),
+                UNIQUE(item_id, kitchen_id, order_id)
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         print("✓ Database migration completed")
@@ -1642,3 +1687,227 @@ if __name__ == '__main__':
         print(f"✓ Migration check: {e}")
     
     app.run(debug=True, host='0.0.0.0', port=5100)
+
+
+
+# ============================================================================
+# KITCHEN MANAGEMENT API
+# ============================================================================
+
+from kitchen_manager import KitchenManager
+
+@app.route('/api/kitchens', methods=['GET'])
+def get_kitchens():
+    """Get all kitchen information"""
+    kitchens = KitchenManager.get_all_kitchens()
+    return jsonify({'kitchens': kitchens})
+
+@app.route('/api/kitchens/<kitchen_id>/assignments', methods=['GET'])
+def get_kitchen_assignments(kitchen_id):
+    """Get all assignments for a kitchen"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get kitchen assignments from stream database if available
+    try:
+        from stream_integration import get_kitchen_assignments as stream_get_assignments
+        assignments = stream_get_assignments(kitchen_id)
+        conn.close()
+        return jsonify({'assignments': assignments})
+    except:
+        pass
+    
+    # Fallback to empty list if stream not available
+    conn.close()
+    return jsonify({'assignments': []})
+
+@app.route('/api/orders/<order_id>/assign-kitchens', methods=['POST'])
+def assign_order_to_kitchens(order_id):
+    """Assign order items to specific kitchens"""
+    conn = get_db_connection()
+    
+    # Get order
+    order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+    if not order_row:
+        conn.close()
+        return jsonify({'error': 'Order not found'}), 404
+    
+    # Get request data
+    data = request.get_json()
+    assignments = data.get('assignments', [])
+    
+    order_data = dict(order_row)
+    
+    # If explicit assignments provided, use them
+    if assignments and len(assignments) > 0:
+        # Update order_items with kitchen assignments
+        for assignment in assignments:
+            item_id = assignment.get('item_id')
+            kitchen_id = assignment.get('kitchen_id')
+            
+            if item_id and kitchen_id:
+                # Update the order item with kitchen assignment
+                conn.execute('''
+                    UPDATE order_items 
+                    SET status = 'preparing'
+                    WHERE id = ?
+                ''', (item_id,))
+                
+                # Store kitchen assignment
+                assignment_id = str(uuid.uuid4())
+                conn.execute('''
+                    INSERT OR IGNORE INTO kitchen_assignments (id, item_id, kitchen_id, order_id, status)
+                    VALUES (?, ?, ?, ?, 'pending')
+                ''', (assignment_id, item_id, kitchen_id, order_id))
+        
+        conn.commit()
+    
+    # Get updated items
+    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    items = [dict(row) for row in items_rows]
+    order_data['items'] = items
+    
+    # Get kitchen assignments for this order
+    assignment_rows = conn.execute('''
+        SELECT DISTINCT ka.kitchen_id, k.name, k.icon
+        FROM kitchen_assignments ka
+        JOIN kitchens k ON ka.kitchen_id = k.id
+        WHERE ka.order_id = ?
+    ''', (order_id,)).fetchall()
+    
+    kitchen_assignments = {}
+    for row in assignment_rows:
+        kitchen_id = row[0]
+        kitchen_name = row[1]
+        kitchen_icon = row[2]
+        
+        items_for_kitchen = conn.execute('''
+            SELECT oi.* FROM order_items oi
+            JOIN kitchen_assignments ka ON oi.id = ka.item_id
+            WHERE ka.kitchen_id = ? AND oi.order_id = ?
+        ''', (kitchen_id, order_id)).fetchall()
+        
+        kitchen_assignments[kitchen_id] = {
+            'kitchen_id': kitchen_id,
+            'kitchen_name': kitchen_name,
+            'icon': kitchen_icon,
+            'items': [dict(item) for item in items_for_kitchen],
+            'item_count': len(items_for_kitchen)
+        }
+    
+    # If no explicit assignments, use KitchenManager to auto-assign
+    if not assignments or len(assignments) == 0:
+        auto_assignments = KitchenManager.assign_order_items(order_data)
+        
+        for kitchen_id, assigned_items in auto_assignments.items():
+            for item in assigned_items:
+                assignment_id = str(uuid.uuid4())
+                conn.execute('''
+                    INSERT OR IGNORE INTO kitchen_assignments (id, item_id, kitchen_id, order_id, status)
+                    VALUES (?, ?, ?, ?, 'pending')
+                ''', (assignment_id, item['id'], kitchen_id, order_id))
+            
+            kitchen_info = KitchenManager.get_kitchen_details(kitchen_id)
+            kitchen_assignments[kitchen_id] = {
+                'kitchen_id': kitchen_id,
+                'kitchen_name': kitchen_info['name'],
+                'icon': kitchen_info['icon'],
+                'items': assigned_items,
+                'item_count': len(assigned_items)
+            }
+        
+        conn.commit()
+    
+    # Push to stream if available
+    if push_order_to_stream:
+        try:
+            from stream_integration import push_order_to_stream as stream_push
+            stream_push(order_data)
+        except:
+            pass
+    
+    conn.close()
+    return jsonify({'success': True, 'assignments': list(kitchen_assignments.values())})
+
+@app.route('/api/orders/<order_id>/kitchen-status', methods=['GET', 'PUT'])
+def order_kitchen_status(order_id):
+    """Get or update kitchen item status for an order"""
+    conn = get_db_connection()
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        item_id = data.get('item_id')
+        new_status = data.get('status')
+        
+        # Update item status in order_items table
+        conn.execute('''
+            UPDATE order_items 
+            SET status = ?, updated_at = ?
+            WHERE id = ?
+        ''', (new_status, datetime.now().isoformat(), item_id))
+        
+        conn.commit()
+        
+        # Check if all items are completed
+        cursor = conn.execute('''
+            SELECT COUNT(*) as total, 
+                   SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+            FROM order_items 
+            WHERE order_id = ?
+        ''', (order_id,)).fetchone()
+        
+        total = cursor['total']
+        completed = cursor['completed'] or 0
+        
+        # Update order status if all items completed
+        if total == completed:
+            conn.execute('UPDATE orders SET status = ? WHERE id = ?', ('completed', order_id))
+            conn.commit()
+        
+        conn.close()
+        return jsonify({'success': True, 'item_id': item_id, 'status': new_status})
+    
+    # GET - retrieve all items and their status
+    items = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    conn.close()
+    
+    items_data = []
+    for item in items:
+        item_dict = dict(item)
+        item_dict['status_label'] = KitchenManager.STATUS_LABELS.get(item_dict.get('status', 'pending'), '⏳ Pending')
+        item_dict['status_color'] = KitchenManager.STATUS_COLORS.get(item_dict.get('status', 'pending'), '#FFA500')
+        items_data.append(item_dict)
+    
+    return jsonify({'items': items_data})
+
+@app.route('/api/kitchen-item/<item_id>/transition', methods=['POST'])
+def transition_item_status(item_id):
+    """Transition item to next status in workflow"""
+    data = request.get_json()
+    new_status = data.get('status')
+    
+    if new_status not in KitchenManager.STATUS_FLOW:
+        return jsonify({'error': 'Invalid status'}), 400
+    
+    conn = get_db_connection()
+    
+    # Update item
+    conn.execute('''
+        UPDATE order_items 
+        SET status = ?, updated_at = ?
+        WHERE id = ?
+    ''', (new_status, datetime.now().isoformat(), item_id))
+    
+    conn.commit()
+    
+    # Get updated item
+    item = conn.execute('SELECT * FROM order_items WHERE id = ?', (item_id,)).fetchone()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'item_id': item_id,
+        'status': new_status,
+        'status_label': KitchenManager.STATUS_LABELS.get(new_status),
+        'status_color': KitchenManager.STATUS_COLORS.get(new_status)
+    })
