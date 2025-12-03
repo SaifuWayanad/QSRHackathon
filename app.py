@@ -319,6 +319,11 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/customer-chat')
+def customer_chat():
+    """Customer chat interface"""
+    return render_template('customer_chat.html')
+
 @app.route('/api/hello', methods=['GET', 'POST'])
 def hello():
     if request.method == 'POST':

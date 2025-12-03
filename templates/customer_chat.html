@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍽️ Order Chat - QSR</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 1400px;
+            height: 90vh;
+            max-height: 900px;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 50%;
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            font-weight: 600;
+            border-bottom: 2px solid #764ba2;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .order-item-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .order-item-card:hover {
+            background: #f0f2f7;
+            border-left-color: #764ba2;
+            transform: translateX(4px);
+        }
+
+        .order-item-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .order-item-id {
+            font-weight: 600;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .order-item-time {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .order-item-details {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .order-item-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .order-item-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .status-indicator.pending {
+            background: #ffc107;
+        }
+
+        .status-indicator.preparing {
+            background: #3498db;
+        }
+
+        .status-indicator.ready {
+            background: #2ecc71;
+        }
+
+        .status-indicator.completed {
+            background: #95a5a6;
+        }
+
+        .current-order-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .current-order-summary h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        .current-order-total {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .current-order-items {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .no-orders-message {
+            text-align: center;
+            color: #999;
+            padding: 20px 10px;
+            font-size: 13px;
+        }
+
+        .no-orders-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        /* Scrollbar for sidebar */
+        .sidebar-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 2px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+
+        /* Header */
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #764ba2;
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .header-title p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #2ecc71;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Chat Messages */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.customer {
+            justify-content: flex-end;
+        }
+
+        .message.restaurant {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.customer .message-content {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.restaurant .message-content {
+            background: #f0f0f0;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .message.customer .message-time {
+            text-align: right;
+        }
+
+        /* Order Status Card */
+        .order-status-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .order-status-card strong {
+            display: block;
+            margin-bottom: 6px;
+            color: #667eea;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.preparing {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-badge.ready {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-badge.completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* Order Items */
+        .order-items-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .item-qty {
+            color: #666;
+            margin: 0 8px;
+        }
+
+        .item-price {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Input Area */
+        .chat-input-area {
+            padding: 12px 16px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            max-height: 100px;
+            min-height: 40px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .send-btn:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Suggestion Buttons */
+        .suggestions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px 0 0 0;
+            margin-top: 8px;
+        }
+
+        .suggestion-btn {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h2 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .start-btn {
+            padding: 10px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            background: #764ba2;
+        }
+
+        /* Loading Animation */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                opacity: 0.5;
+                transform: translateY(0);
+            }
+            30% {
+                opacity: 1;
+                transform: translateY(-10px);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr 300px;
+                gap: 15px;
+            }
+
+            .sidebar-card {
+                height: calc(50% - 7.5px);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                max-height: 100vh;
+                height: 100vh;
+            }
+
+            .chat-container {
+                max-width: 100%;
+                height: 100%;
+                border-radius: 0;
+            }
+
+            .sidebar-container {
+                display: none;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                max-width: 100%;
+                height: 100vh;
+                border-radius: 0;
+                max-height: none;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+        }
+
+        /* Scrollbar */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Chat Section -->
+        <div class="chat-container">
+            <!-- Header -->
+            <div class="chat-header">
+                <div class="header-title">
+                    <h1>🍽️ Your Order</h1>
+                    <p id="tableInfo">Table: Loading...</p>
+                </div>
+                <div class="header-status">
+                    <div class="status-dot"></div>
+                    <span id="statusText">Online</span>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="empty-state">
+                    <div class="empty-state-icon">💬</div>
+                    <h2>Welcome to QSR Chat!</h2>
+                    <p>Place your order or chat with our team</p>
+                    <button class="start-btn" onclick="startOrderChat()">Start Ordering</button>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="chat-input-area">
+                <div class="input-wrapper" style="width: 100%; flex-direction: column;">
+                    <div style="display: flex; gap: 8px; align-items: flex-end;">
+                        <input type="text" id="messageInput" class="message-input" placeholder="Type your message..." />
+                        <button class="send-btn" onclick="sendMessage()">➤</button>
+                    </div>
+                    <div class="suggestions" id="suggestions" style="display: none;">
+                        <button class="suggestion-btn" onclick="sendQuickMessage('Can you add extra spice?')">🌶️ Extra Spice</button>
+                        <button class="suggestion-btn" onclick="sendQuickMessage('How long is the wait?')">⏱️ Wait Time</button>
+                        <button class="suggestion-btn" onclick="sendQuickMessage('I have allergies')">⚠️ Allergies</button>
+                        <button class="suggestion-btn" onclick="sendQuickMessage('Need more napkins')">🧻 Napkins</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar-container">
+            <!-- Last Orders Card -->
+            <div class="sidebar-card">
+                <div class="sidebar-header">📋 Last Orders</div>
+                <div class="sidebar-content" id="lastOrdersContainer">
+                    <div class="no-orders-message">
+                        <div class="no-orders-icon">📭</div>
+                        <div>No previous orders</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Order Status Card -->
+            <div class="sidebar-card">
+                <div class="sidebar-header">⏳ Order Status</div>
+                <div class="sidebar-content" id="orderStatusContainer">
+                    <div class="no-orders-message">
+                        <div class="no-orders-icon">🔍</div>
+                        <div>No active order</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentOrder = null;
+        let isFirstMessage = true;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableId = urlParams.get('table');
+            const orderId = urlParams.get('order');
+
+            if (orderId) {
+                loadOrderInfo(orderId);
+            } else {
+                document.getElementById('tableInfo').textContent = tableId ? `Table: ${tableId}` : 'Table: Online Order';
+            }
+
+            // Load last orders in sidebar
+            loadLastOrders();
+
+            // Allow Enter key to send message
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Auto-resize input
+            document.getElementById('messageInput').addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+        });
+
+        function loadOrderInfo(orderId) {
+            fetch(`/api/orders/${orderId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success || data.order) {
+                        currentOrder = data.order;
+                        document.getElementById('tableInfo').textContent = `Order: ${orderId.substring(0, 8)}...`;
+                        displayOrderStatus();
+                        displayCurrentOrderInSidebar(data.order);
+                    }
+                })
+                .catch(error => console.error('Error loading order:', error));
+        }
+
+        function loadLastOrders() {
+            fetch('/api/orders')
+                .then(res => res.json())
+                .then(data => {
+                    const orders = data.orders || [];
+                    const lastOrdersContainer = document.getElementById('lastOrdersContainer');
+                    
+                    if (orders.length === 0) {
+                        lastOrdersContainer.innerHTML = `
+                            <div class="no-orders-message">
+                                <div class="no-orders-icon">📭</div>
+                                <div>No previous orders</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // Get last 5 orders sorted by date
+                    const lastFive = orders
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .slice(0, 5);
+
+                    lastOrdersContainer.innerHTML = lastFive.map(order => {
+                        const date = new Date(order.created_at);
+                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const itemCount = order.items ? order.items.length : 0;
+                        const orderIdShort = order.id.substring(0, 6).toUpperCase();
+                        const tableNum = order.table_number || 'N/A';
+                        const status = order.status || 'pending';
+                        
+                        const statusEmoji = {
+                            'pending': '⏳',
+                            'preparing': '👨‍🍳',
+                            'ready': '✓',
+                            'served': '🍽️',
+                            'completed': '✅',
+                            'cancelled': '✗'
+                        }[status] || '❓';
+
+                        return `
+                            <div class="order-item-card" onclick="loadOrderInfo('${order.id}')">
+                                <div class="order-item-card-header">
+                                    <div class="order-item-id">#${orderIdShort}</div>
+                                    <div class="order-item-time">${timeStr}</div>
+                                </div>
+                                <div class="order-item-details">
+                                    Table: ${tableNum}
+                                </div>
+                                <div class="order-item-status">
+                                    <span class="order-item-count">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+                                    <span class="status-indicator ${status}">${statusEmoji}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading orders:', error);
+                    document.getElementById('lastOrdersContainer').innerHTML = `
+                        <div class="no-orders-message">
+                            <div class="no-orders-icon">⚠️</div>
+                            <div>Error loading orders</div>
+                        </div>
+                    `;
+                });
+        }
+
+        function displayCurrentOrderInSidebar(order) {
+            const orderStatusContainer = document.getElementById('orderStatusContainer');
+            
+            if (!order) {
+                orderStatusContainer.innerHTML = `
+                    <div class="no-orders-message">
+                        <div class="no-orders-icon">🔍</div>
+                        <div>No active order</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const statusEmoji = {
+                'pending': '⏳',
+                'preparing': '👨‍🍳',
+                'ready': '✓',
+                'served': '🍽️',
+                'completed': '✅',
+                'cancelled': '✗'
+            }[order.status] || '❓';
+
+            const itemCount = order.items ? order.items.length : 0;
+            const total = order.total_amount ? parseFloat(order.total_amount).toFixed(2) : '0.00';
+            const orderIdShort = order.id.substring(0, 6).toUpperCase();
+
+            let html = `
+                <div class="current-order-summary">
+                    <h4>Order #${orderIdShort}</h4>
+                    <div class="current-order-total">$${total}</div>
+                    <div class="current-order-items">${itemCount} item${itemCount !== 1 ? 's' : ''}</div>
+                </div>
+                <div style="padding: 0 12px;">
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Status</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">${statusEmoji}</span>
+                            <span style="font-weight: 600; font-size: 13px; text-transform: capitalize;">${order.status}</span>
+                        </div>
+                    </div>
+            `;
+
+            if (order.items && order.items.length > 0) {
+                html += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px;">Items</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                `;
+                
+                order.items.forEach(item => {
+                    const itemName = item.food_name || 'Item';
+                    const qty = item.quantity || 1;
+                    html += `
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 6px; background: #f5f5f5; border-radius: 4px;">
+                            <span>${itemName}</span>
+                            <span style="color: #667eea; font-weight: 600;">×${qty}</span>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+
+            orderStatusContainer.innerHTML = html;
+        }
+
+
+        function startOrderChat() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            document.getElementById('suggestions').style.display = 'flex';
+
+            addMessage('Welcome! 👋 How can we help you today?', 'restaurant');
+            addMessage('Would you like to place a new order or modify an existing one?', 'restaurant');
+
+            isFirstMessage = false;
+        }
+
+        function displayOrderStatus() {
+            if (!currentOrder) return;
+
+            const chatMessages = document.getElementById('chatMessages');
+            if (isFirstMessage) {
+                chatMessages.innerHTML = '';
+                isFirstMessage = false;
+            }
+
+            let statusHtml = `
+                <div class="order-status-card">
+                    <strong>📦 Order Status</strong>
+                    <div>Order ID: ${currentOrder.id.substring(0, 8)}...</div>
+                    <div style="margin-top: 6px;">Items: ${currentOrder.items ? currentOrder.items.length : 0}</div>
+                    <div>Total: $${currentOrder.total_amount ? currentOrder.total_amount.toFixed(2) : '0.00'}</div>
+                    <span class="status-badge ${currentOrder.status}">${currentOrder.status.toUpperCase()}</span>
+                </div>
+            `;
+
+            if (currentOrder.items && currentOrder.items.length > 0) {
+                let itemsHtml = '<div class="order-items-list"><strong style="display: block; margin-bottom: 8px;">🍴 Your Items:</strong>';
+                currentOrder.items.forEach(item => {
+                    itemsHtml += `
+                        <div class="order-item">
+                            <span class="item-name">${item.food_name}</span>
+                            <span class="item-qty">×${item.quantity}</span>
+                            <span class="item-price">$${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+                itemsHtml += '</div>';
+                statusHtml += itemsHtml;
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = statusHtml;
+            chatMessages.appendChild(messageDiv);
+
+            document.getElementById('suggestions').style.display = 'flex';
+
+            // Add welcome message
+            setTimeout(() => {
+                addMessage('Your order is confirmed! 🎉', 'restaurant');
+                addMessage('Feel free to ask any questions or request modifications.', 'restaurant');
+            }, 500);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            addMessage(message, 'customer');
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Simulate restaurant response
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    removeTypingIndicator();
+                    addMessage('Thanks for your message! Our team will respond shortly. 👨‍🍳', 'restaurant');
+                }, 2000);
+            }, 500);
+        }
+
+        function sendQuickMessage(message) {
+            addMessage(message, 'customer');
+            document.getElementById('messageInput').value = '';
+
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    removeTypingIndicator();
+                    if (message.includes('spice')) {
+                        addMessage('✓ Extra spice noted on your order!', 'restaurant');
+                    } else if (message.includes('wait')) {
+                        addMessage('Your order should be ready in about 15-20 minutes. ⏱️', 'restaurant');
+                    } else if (message.includes('allergies')) {
+                        addMessage('Please inform your server about any allergies. We take this seriously! 🏥', 'restaurant');
+                    } else if (message.includes('napkins')) {
+                        addMessage('More napkins coming right up! 🧻', 'restaurant');
+                    }
+                }, 1500);
+            }, 300);
+        }
+
+        function addMessage(text, sender) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // Remove empty state if it exists
+            const emptyState = chatMessages.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            messageDiv.innerHTML = `
+                <div>
+                    <div class="message-content">${text}</div>
+                    <div class="message-time">${timeString}</div>
+                </div>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const chatMessages = document.getElementById('chatMessages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typingIndicator';
+            typingDiv.className = 'message restaurant';
+            typingDiv.innerHTML = `
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+    </script>
+</body>
+</html>
