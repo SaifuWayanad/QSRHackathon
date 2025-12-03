@@ -425,7 +425,7 @@ def db_run_query_tool(conn, query, params=None):
 # PgVector already imported at top with try/except
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', "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")
+ANTHROPIC_API_KEY =  "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"
 
 # Global knowledge variable
 knowledge = None
@@ -492,7 +492,9 @@ try:
         kitchen_agent = Agent(
                 name="Kitchen Agent",
                model = Claude(
-                        id="claude-sonnet-4-20250514",
+                        # id="claude-sonnet-4-20250514",
+                        # id="claude-haiku-4-20250514",
+                        id="claude-3-5-haiku-20241022",
                         api_key=ANTHROPIC_API_KEY
                     ),
                 instructions=kitchen_instructions,

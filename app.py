@@ -1944,11 +1944,7 @@ def receive_order_webhook():
 
 from kitchen_manager import KitchenManager
 
-@app.route('/api/kitchens', methods=['GET'])
-def get_kitchens():
-    """Get all kitchen information"""
-    kitchens = KitchenManager.get_all_kitchens()
-    return jsonify({'kitchens': kitchens})
+# Note: /api/kitchens GET and POST route is defined earlier in the file (around line 511)
 
 @app.route('/api/kitchens/<kitchen_id>/assignments', methods=['GET'])
 def get_kitchen_assignments(kitchen_id):

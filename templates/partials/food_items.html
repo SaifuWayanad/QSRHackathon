@@ -40,4 +40,58 @@
     </div>
 </div>
 
+<!-- Food Item Modal -->
+<div class="modal" id="foodModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Food Item</h3>
+            <button class="close-btn" onclick="closeFoodModal()">&times;</button>
+        </div>
+        <form id="foodForm" onsubmit="saveFoodItem(event)">
+            <div class="form-group">
+                <label>Food Name *</label>
+                <input type="text" id="foodName" required placeholder="e.g., Margherita Pizza">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="foodCategory" required>
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Price ($) *</label>
+                    <input type="number" id="foodPrice" required step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Kitchens * (Select one or more kitchens where this item can be prepared)</label>
+                <div id="foodKitchens" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+                    <p style="color: #999; grid-column: 1 / -1; text-align: center;">Loading kitchens...</p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="foodDescription" placeholder="Describe this food item"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Specifications</label>
+                <textarea id="foodSpecs" placeholder="e.g., Serving size: 1 plate, Calories: 450, Spice level: Medium, Allergens: Gluten, Dairy"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="foodStatus">
+                    <option value="available">Available</option>
+                    <option value="unavailable">Unavailable</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closeFoodModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Food Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/food_items.js') }}"></script>

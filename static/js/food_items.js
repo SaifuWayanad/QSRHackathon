@@ -1,33 +1,72 @@
 // Food Items JavaScript
 
 function openFoodModal() {
+    // Open modal first
+    document.getElementById('foodModal').classList.add('active');
+    
+    // Then load data
     loadCategoryOptions();
     loadKitchenCheckboxes();
-    setTimeout(() => {
-        document.getElementById('foodModal').classList.add('active');
-    }, 100);
 }
 
 function closeFoodModal() {
     document.getElementById('foodModal').classList.remove('active');
     document.getElementById('foodForm').reset();
+    
+    // Reset kitchens container to loading state
+    const container = document.getElementById('foodKitchens');
+    if (container) {
+        container.innerHTML = '<p style="color: #999; grid-column: 1 / -1; text-align: center;">Loading kitchens...</p>';
+    }
+}
+
+function loadCategoryOptions() {
+    fetch('/api/categories')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('foodCategory');
+            if (select) {
+                select.innerHTML = '<option value="">Select Category</option>';
+                if (data.categories && data.categories.length > 0) {
+                    data.categories.forEach(cat => {
+                        select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                    });
+                }
+            }
+        })
+        .catch(error => console.error('Error loading categories:', error));
 }
 
 function loadKitchenCheckboxes() {
     const container = document.getElementById('foodKitchens');
     if (!container) {
-        console.error('foodKitchens container not found!');
+        console.error('❌ foodKitchens container not found!');
         return;
     }
     
-    console.log('Loading kitchens...');
-    fetch('/api/kitchens')
+    console.log('🔄 Loading kitchens from API...');
+    container.innerHTML = '<p style="color: #999; grid-column: 1 / -1; text-align: center;">Loading kitchens...</p>';
+    
+    fetch('/api/kitchens', {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+        }
+    })
         .then(res => {
-            console.log('Response status:', res.status);
-            return res.json();
+            console.log('📡 Response status:', res.status);
+            console.log('📡 Content-Type:', res.headers.get('Content-Type'));
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            return res.text();
         })
-        .then(data => {
-            console.log('Kitchens data:', data);
+        .then(text => {
+            console.log('📡 Raw response:', text.substring(0, 200));
+            const data = JSON.parse(text);
+            console.log('✅ Kitchens data received:', data);
             if (data.kitchens && data.kitchens.length > 0) {
                 container.innerHTML = data.kitchens.map(kitchen => `
                     <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
@@ -35,16 +74,15 @@ function loadKitchenCheckboxes() {
                         <span>${kitchen.icon || '🍳'} ${kitchen.name}</span>
                     </label>
                 `).join('');
+                console.log(`✅ Loaded ${data.kitchens.length} kitchens successfully`);
             } else {
+                console.warn('⚠️ No kitchens found in response');
                 container.innerHTML = '<p style="color: #999; grid-column: 1 / -1; text-align: center;">No kitchens available</p>';
             }
         })
         .catch(error => {
-            console.error('Error loading kitchens:', error);
-            const errorContainer = document.getElementById('foodKitchens');
-            if (errorContainer) {
-                errorContainer.innerHTML = '<p style="color: #f00; grid-column: 1 / -1; text-align: center;">Error loading kitchens: ' + error.message + '</p>';
-            }
+            console.error('❌ Error loading kitchens:', error);
+            container.innerHTML = '<p style="color: #f00; grid-column: 1 / -1; text-align: center;">Error loading kitchens: ' + error.message + '</p>';
         });
 }
 
