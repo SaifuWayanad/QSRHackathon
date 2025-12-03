@@ -1,0 +1,91 @@
+<!-- Staff-Kitchen Mapping Section -->
+<div class="page-section" id="staff-kitchen">
+    <div class="section-header">
+        <h2>👥 Staff-Kitchen Assignments</h2>
+        <p>Manage staff assignments to kitchens with manager approval workflow</p>
+    </div>
+    
+    <div class="action-bar">
+        <button class="btn btn-primary" onclick="openStaffKitchenRequestModal()">
+            + Request Kitchen Assignment
+        </button>
+    </div>
+    
+    <!-- Pending Requests Section -->
+    <div class="card" style="margin-bottom: 20px;">
+        <h3 style="margin-bottom: 15px; color: #333;">⏳ Pending Approval Requests</h3>
+        <div class="table-container">
+            <table id="pending-requests-table">
+                <thead>
+                    <tr>
+                        <th>Staff Name</th>
+                        <th>Current Kitchen</th>
+                        <th>Requested Kitchen</th>
+                        <th>Position</th>
+                        <th>Reason</th>
+                        <th>Start Date</th>
+                        <th>Requested</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-requests-tbody">
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <p>No pending requests</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Active Assignments Section -->
+    <div class="card">
+        <h3 style="margin-bottom: 15px; color: #333;">✅ Active Kitchen Assignments</h3>
+        <div class="table-container">
+            <table id="assignments-table">
+                <thead>
+                    <tr>
+                        <th>Staff Name</th>
+                        <th>Kitchen</th>
+                        <th>Position</th>
+                        <th>Assigned Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="assignments-tbody">
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <p>No active assignments</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 15px; color: #333;">📊 Assignment Statistics</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Pending Requests</p>
+                <h4 style="color: #ffc107; font-size: 24px;" id="pending-requests-count">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Assignments</p>
+                <h4 style="color: #28a745; font-size: 24px;" id="active-assignments-count">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Approved This Month</p>
+                <h4 style="color: #667eea; font-size: 24px;" id="approved-count">0</h4>
+            </div>
+        </div>
+    </div>
+</div>

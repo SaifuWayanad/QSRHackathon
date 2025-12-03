@@ -1,0 +1,43 @@
+<!-- Food Items Section -->
+<div class="page-section" id="food-items">
+    <div class="section-header">
+        <h2>Food Items</h2>
+        <p>Manage your menu items and specifications</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openFoodModal()">
+            + Add Food Item
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="food-table">
+                <thead>
+                    <tr>
+                        <th>Food Name</th>
+                        <th>Category</th>
+                        <th>Kitchen</th>
+                        <th>Price</th>
+                        <th>Specifications</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="food-tbody">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <p>No food items yet. Add your first item!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/food_items.js') }}"></script>

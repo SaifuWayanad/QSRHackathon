@@ -53,6 +53,7 @@ class DatabaseSchema:
                 "description": {"type": "TEXT", "description": "Kitchen description"},
                 "status": {"type": "TEXT", "default": "'active'", "description": "Status: active/inactive"},
                 "items_count": {"type": "INTEGER", "default": "0", "description": "Number of food items prepared here"},
+                "icon": {"type": "TEXT", "default": "'🍳'", "description": "Kitchen icon emoji"},
                 "created_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Creation timestamp"}
             }
         },
@@ -123,19 +124,24 @@ class DatabaseSchema:
                 "quantity": {"type": "INTEGER", "not_null": True, "description": "Quantity ordered"},
                 "price": {"type": "REAL", "not_null": True, "description": "Price per unit"},
                 "notes": {"type": "TEXT", "description": "Special requests for this item"},
-                "created_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Creation timestamp"}
+                "status": {"type": "TEXT", "default": "'pending'", "description": "Item status: pending/preparing/ready/completed"},
+                "created_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Creation timestamp"},
+                "updated_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Last update timestamp"}
             }
         },
         "kitchen_assignments": {
-            "description": "Assignment of order items to specific kitchens",
+            "description": "Assignment of order items to specific kitchens with workflow tracking",
             "columns": {
                 "id": {"type": "TEXT", "pk": True, "description": "Unique identifier"},
                 "item_id": {"type": "TEXT", "not_null": True, "fk": "order_items.id", "description": "Order item reference"},
                 "kitchen_id": {"type": "TEXT", "not_null": True, "fk": "kitchens.id", "description": "Assigned kitchen"},
                 "order_id": {"type": "TEXT", "not_null": True, "fk": "orders.id", "description": "Order reference"},
                 "status": {"type": "TEXT", "default": "'pending'", "description": "Status: pending/preparing/ready/completed"},
+                "started": {"type": "INTEGER", "default": "0", "description": "Boolean flag: 1 if cooking started, 0 if not"},
+                "completed": {"type": "INTEGER", "default": "0", "description": "Boolean flag: 1 if cooking completed, 0 if not"},
                 "assigned_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Assignment time"},
-                "completed_at": {"type": "TIMESTAMP", "description": "Completion time"}
+                "completed_at": {"type": "TIMESTAMP", "description": "Completion time"},
+                "unique_constraint": {"type": "UNIQUE", "columns": ["item_id", "kitchen_id", "order_id"], "description": "One assignment per item-kitchen-order combination"}
             }
         },
         "daily_production": {
@@ -177,7 +183,8 @@ class DatabaseSchema:
                 "quantity": {"type": "INTEGER", "default": "1", "description": "Number of this appliance"},
                 "location": {"type": "TEXT", "description": "Location within kitchen"},
                 "status": {"type": "TEXT", "default": "'active'", "description": "Status: active/inactive"},
-                "assigned_date": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Assignment date"}
+                "assigned_date": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Assignment date"},
+                "unique_constraint": {"type": "UNIQUE", "columns": ["kitchen_id", "appliance_id"], "description": "One assignment per kitchen-appliance pair"}
             }
         },
         "iot_devices": {
@@ -230,9 +237,9 @@ class DatabaseSchema:
             "columns": {
                 "id": {"type": "TEXT", "pk": True, "description": "Unique identifier"},
                 "staff_id": {"type": "TEXT", "not_null": True, "fk": "staff.id", "description": "Staff member"},
-                "staff_name": {"type": "TEXT", "description": "Cached staff name"},
+                "staff_name": {"type": "TEXT", "not_null": True, "description": "Cached staff name"},
                 "kitchen_id": {"type": "TEXT", "not_null": True, "fk": "kitchens.id", "description": "Requested kitchen"},
-                "kitchen_name": {"type": "TEXT", "description": "Cached kitchen name"},
+                "kitchen_name": {"type": "TEXT", "not_null": True, "description": "Cached kitchen name"},
                 "position": {"type": "TEXT", "description": "Position requested"},
                 "request_reason": {"type": "TEXT", "description": "Reason for request"},
                 "requested_start_date": {"type": "DATE", "description": "Requested start date"},
@@ -243,7 +250,8 @@ class DatabaseSchema:
                 "approval_date": {"type": "TIMESTAMP", "description": "Approval date"},
                 "rejection_reason": {"type": "TEXT", "description": "Rejection reason if applicable"},
                 "requested_date": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Request date"},
-                "updated_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Update timestamp"}
+                "updated_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Update timestamp"},
+                "unique_constraint": {"type": "UNIQUE", "columns": ["staff_id", "kitchen_id"], "description": "One active request per staff-kitchen pair"}
             }
         },
         "staff_kitchen_assignments": {
@@ -251,18 +259,19 @@ class DatabaseSchema:
             "columns": {
                 "id": {"type": "TEXT", "pk": True, "description": "Unique identifier"},
                 "staff_id": {"type": "TEXT", "not_null": True, "fk": "staff.id", "description": "Staff member"},
-                "staff_name": {"type": "TEXT", "description": "Cached staff name"},
+                "staff_name": {"type": "TEXT", "not_null": True, "description": "Cached staff name"},
                 "kitchen_id": {"type": "TEXT", "not_null": True, "fk": "kitchens.id", "description": "Assigned kitchen"},
-                "kitchen_name": {"type": "TEXT", "description": "Cached kitchen name"},
+                "kitchen_name": {"type": "TEXT", "not_null": True, "description": "Cached kitchen name"},
                 "position": {"type": "TEXT", "description": "Position"},
                 "request_id": {"type": "TEXT", "fk": "staff_kitchen_requests.id", "description": "Associated request"},
-                "assigned_date": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Assignment date"},
+                "assigned_date": {"type": "DATE", "default": "CURRENT_DATE", "description": "Assignment date"},
                 "end_date": {"type": "DATE", "description": "End date if temporary"},
                 "status": {"type": "TEXT", "default": "'active'", "description": "Status: active/inactive"},
                 "notes": {"type": "TEXT", "description": "Notes"},
-                "created_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Creation timestamp"}
+                "created_at": {"type": "TIMESTAMP", "default": "CURRENT_TIMESTAMP", "description": "Creation timestamp"},
+                "unique_constraint": {"type": "UNIQUE", "columns": ["staff_id", "kitchen_id"], "description": "One active assignment per staff-kitchen pair"}
             }
-        }
+        },
     }
     
     @staticmethod

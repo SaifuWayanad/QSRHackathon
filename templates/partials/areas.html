@@ -1,0 +1,41 @@
+<!-- Areas Section -->
+<div class="page-section" id="areas">
+    <div class="section-header">
+        <h2>Dining Areas</h2>
+        <p>Manage all dining areas in your restaurant</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openAreaModal()">
+            + Add Area
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="areas-table">
+                <thead>
+                    <tr>
+                        <th>Area Name</th>
+                        <th>Description</th>
+                        <th>Tables</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="areas-tbody">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <p>No areas yet. Add your first area!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/areas.js') }}"></script>

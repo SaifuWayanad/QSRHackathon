@@ -1,0 +1,71 @@
+<!-- IoT Devices Section -->
+<div class="page-section" id="iot-devices">
+    <div class="section-header">
+        <h2>IoT Devices Management</h2>
+        <p>Manage and monitor IoT devices throughout the restaurant</p>
+    </div>
+    
+    <div class="action-bar">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="color: #333; font-weight: 600;">Filter by Kitchen:</label>
+            <select id="iot-kitchen-filter" onchange="loadIoTDevices()" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                <option value="">All Kitchens</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="openIoTDeviceModal()">
+            + Add IoT Device
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="iot-devices-table">
+                <thead>
+                    <tr>
+                        <th>Device Name</th>
+                        <th>Type</th>
+                        <th>Device ID</th>
+                        <th>Kitchen</th>
+                        <th>Location</th>
+                        <th>Battery</th>
+                        <th>Signal</th>
+                        <th>Status</th>
+                        <th>Last Sync</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="iot-devices-tbody">
+                    <tr>
+                        <td colspan="10">
+                            <div class="empty-state">
+                                <p>No IoT devices yet. Add your first device!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 15px; color: #333;">Device Statistics</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Devices</p>
+                <h4 style="color: #667eea; font-size: 24px;" id="total-iot-devices">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Devices</p>
+                <h4 style="color: #28a745; font-size: 24px;" id="active-iot-devices">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Low Battery</p>
+                <h4 style="color: #ffc107; font-size: 24px;" id="low-battery-devices">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Poor Signal</p>
+                <h4 style="color: #dc3545; font-size: 24px;" id="poor-signal-devices">0</h4>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,41 @@
+<!-- Kitchens Section -->
+<div class="page-section" id="kitchens">
+    <div class="section-header">
+        <h2>Kitchen Management</h2>
+        <p>Manage your restaurant kitchens and assign food items</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openKitchenModal()">
+            + Add Kitchen
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="kitchens-table">
+                <thead>
+                    <tr>
+                        <th>Kitchen Name</th>
+                        <th>Location</th>
+                        <th>Assigned Items</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="kitchens-tbody">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <p>No kitchens yet. Add your first kitchen!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/kitchens.js') }}"></script>

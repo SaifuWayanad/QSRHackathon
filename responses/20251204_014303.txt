@@ -1,0 +1,5 @@
+Timestamp: 2025-12-04 01:43:03
+Event: new_order_recieved
+============================================================
+
+Error: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error', 'message': 'This request would exceed the rate limit for your organization (ab3e815d-6a84-4d04-a8bb-bbf20b2d92f4) of 30,000 input tokens per minute. For details, refer to: https://docs.claude.com/en/api/rate-limits. You can see the response headers for current usage. Please reduce the prompt length or the maximum tokens requested, or try again later. You may also contact sales at https://www.anthropic.com/contact-sales to discuss your options for a rate limit increase.'}, 'request_id': 'req_011CVkN6kpf7mvnH5X5zERiH'}

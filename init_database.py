@@ -3,17 +3,23 @@
 Unified database initialization script for SQLite
 Populates all data from the populate_*.py files
 """
-import sqlite3
+import pymysql
+import pymysql.cursors
 import json
 import uuid
 from datetime import datetime
 
-DB_PATH = "my_database.db"
-
 def get_db_connection():
     """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = pymysql.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DATABASE,
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False
+    )
     return conn
 
 def init_database():
@@ -26,50 +32,50 @@ def init_database():
     # Create tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS areas (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
-            tables_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            tables_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
-            items_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            items_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kitchens (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            location TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            location VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
-            items_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            items_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS food_items (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            category_id TEXT NOT NULL,
-            category_name TEXT,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT,
-            price REAL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            category_id VARCHAR(255) NOT NULL,
+            category_name VARCHAR(255),
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255),
+            price DECIMAL(10, 2),
             description TEXT,
             specifications TEXT,
-            status TEXT DEFAULT 'available',
+            status VARCHAR(255) DEFAULT 'available',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (category_id) REFERENCES categories(id),
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -78,12 +84,12 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tables (
-            id TEXT PRIMARY KEY,
-            number INTEGER NOT NULL,
-            area_id TEXT NOT NULL,
-            area_name TEXT,
-            capacity INTEGER,
-            status TEXT DEFAULT 'available',
+            id VARCHAR(255) PRIMARY KEY,
+            number INT NOT NULL,
+            area_id VARCHAR(255) NOT NULL,
+            area_name VARCHAR(255),
+            capacity INT,
+            status VARCHAR(255) DEFAULT 'available',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (area_id) REFERENCES areas(id)
         )
@@ -91,29 +97,29 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS order_types (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
-            id TEXT PRIMARY KEY,
-            order_number TEXT UNIQUE,
-            table_id TEXT,
-            table_number TEXT,
-            order_type_id TEXT,
-            order_type_name TEXT,
-            customer_name TEXT,
-            items_count INTEGER DEFAULT 0,
-            total_amount REAL DEFAULT 0,
-            status TEXT DEFAULT 'pending',
+            id VARCHAR(255) PRIMARY KEY,
+            order_number VARCHAR(255) UNIQUE,
+            table_id VARCHAR(255),
+            table_number VARCHAR(255),
+            order_type_id VARCHAR(255),
+            order_type_name VARCHAR(255),
+            customer_name VARCHAR(255),
+            items_count INT DEFAULT 0,
+            total_amount DECIMAL(10, 2) DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'pending',
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (table_id) REFERENCES tables(id),
             FOREIGN KEY (order_type_id) REFERENCES order_types(id)
         )
@@ -121,17 +127,17 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS order_items (
-            id TEXT PRIMARY KEY,
-            order_id TEXT NOT NULL,
-            food_item_id TEXT NOT NULL,
-            food_name TEXT,
-            category_name TEXT,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            order_id VARCHAR(255) NOT NULL,
+            food_item_id VARCHAR(255) NOT NULL,
+            food_name VARCHAR(255),
+            category_name VARCHAR(255),
+            quantity INT NOT NULL,
+            price DECIMAL(10, 2) NOT NULL,
             notes TEXT,
-            status TEXT DEFAULT 'pending',
+            status VARCHAR(255) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (order_id) REFERENCES orders(id),
             FOREIGN KEY (food_item_id) REFERENCES food_items(id)
         )
@@ -139,11 +145,11 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kitchen_assignments (
-            id TEXT PRIMARY KEY,
-            item_id TEXT NOT NULL,
-            kitchen_id TEXT NOT NULL,
-            order_id TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
+            id VARCHAR(255) PRIMARY KEY,
+            item_id VARCHAR(255) NOT NULL,
+            kitchen_id VARCHAR(255) NOT NULL,
+            order_id VARCHAR(255) NOT NULL,
+            status VARCHAR(255) DEFAULT 'pending',
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             completed_at TIMESTAMP,
             FOREIGN KEY (item_id) REFERENCES order_items(id),
@@ -155,13 +161,13 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_production (
-            id TEXT PRIMARY KEY,
-            food_id TEXT NOT NULL,
-            food_name TEXT,
-            category_name TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            food_id VARCHAR(255) NOT NULL,
+            food_name VARCHAR(255),
+            category_name VARCHAR(255),
             date DATE NOT NULL,
-            planned_quantity INTEGER,
-            produced INTEGER DEFAULT 0,
+            planned_quantity INT,
+            produced INT DEFAULT 0,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (food_id) REFERENCES food_items(id)
@@ -170,13 +176,13 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS appliances (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL,
-            model TEXT,
-            serial_number TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            type VARCHAR(255) NOT NULL,
+            model VARCHAR(255),
+            serial_number VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             purchase_date DATE,
             last_maintenance DATE,
             notes TEXT,
@@ -186,12 +192,12 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kitchen_appliances (
-            id TEXT PRIMARY KEY,
-            kitchen_id TEXT NOT NULL,
-            appliance_id TEXT NOT NULL,
-            quantity INTEGER DEFAULT 1,
-            location TEXT,
-            status TEXT DEFAULT 'active',
+            id VARCHAR(255) PRIMARY KEY,
+            kitchen_id VARCHAR(255) NOT NULL,
+            appliance_id VARCHAR(255) NOT NULL,
+            quantity INT DEFAULT 1,
+            location VARCHAR(255),
+            status VARCHAR(255) DEFAULT 'active',
             assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
             FOREIGN KEY (appliance_id) REFERENCES appliances(id),
@@ -201,20 +207,20 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS iot_devices (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            device_type TEXT NOT NULL,
-            device_id TEXT UNIQUE,
-            location TEXT,
-            kitchen_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            device_type VARCHAR(255) NOT NULL,
+            device_id VARCHAR(255) UNIQUE,
+            location VARCHAR(255),
+            kitchen_id VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
-            battery_level INTEGER,
-            signal_strength INTEGER,
-            last_sync TIMESTAMP,
-            ip_address TEXT,
-            mac_address TEXT,
-            firmware_version TEXT,
+            status VARCHAR(255) DEFAULT 'active',
+            battery_level INT,
+            signal_strength INT,
+            last_sync TIMESTAMP NULL,
+            ip_address VARCHAR(50),
+            mac_address VARCHAR(50),
+            firmware_version VARCHAR(100),
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -223,23 +229,23 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            phone TEXT,
-            position TEXT NOT NULL,
-            department TEXT,
-            kitchen_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE,
+            phone VARCHAR(50),
+            position VARCHAR(255) NOT NULL,
+            department VARCHAR(100),
+            kitchen_id VARCHAR(255),
             hire_date DATE,
             date_of_birth DATE,
             address TEXT,
-            city TEXT,
-            state TEXT,
-            postal_code TEXT,
+            city VARCHAR(100),
+            state VARCHAR(100),
+            postal_code VARCHAR(20),
             emergency_contact_name TEXT,
             emergency_contact_phone TEXT,
-            status TEXT DEFAULT 'active',
-            salary_type TEXT,
+            status VARCHAR(255) DEFAULT 'active',
+            salary_type VARCHAR(50),
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -248,22 +254,22 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff_kitchen_requests (
-            id TEXT PRIMARY KEY,
-            staff_id TEXT NOT NULL,
-            staff_name TEXT NOT NULL,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT NOT NULL,
-            position TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            staff_id VARCHAR(255) NOT NULL,
+            staff_name VARCHAR(255) NOT NULL,
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255) NOT NULL,
+            position VARCHAR(100),
             request_reason TEXT,
             requested_start_date DATE,
-            status TEXT DEFAULT 'pending',
-            approval_status TEXT DEFAULT 'pending',
-            approved_by TEXT,
+            status VARCHAR(255) DEFAULT 'pending',
+            approval_status VARCHAR(255) DEFAULT 'pending',
+            approved_by VARCHAR(255),
             approval_notes TEXT,
-            approval_date TIMESTAMP,
+            approval_date TIMESTAMP NULL,
             rejection_reason TEXT,
             requested_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE(staff_id, kitchen_id),
             FOREIGN KEY (staff_id) REFERENCES staff(id),
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -272,16 +278,16 @@ def init_database():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff_kitchen_assignments (
-            id TEXT PRIMARY KEY,
-            staff_id TEXT NOT NULL,
-            staff_name TEXT NOT NULL,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT NOT NULL,
-            position TEXT,
-            request_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            staff_id VARCHAR(255) NOT NULL,
+            staff_name VARCHAR(255) NOT NULL,
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255) NOT NULL,
+            position VARCHAR(100),
+            request_id VARCHAR(255),
             assigned_date DATE DEFAULT CURRENT_DATE,
             end_date DATE,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(staff_id, kitchen_id),
@@ -325,7 +331,7 @@ def populate_areas(conn, cursor):
     for area_data in areas_data:
         area_id = str(uuid.uuid4())
         cursor.execute(
-            'INSERT INTO areas (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO areas (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (area_id, area_data['name'], area_data['description'], 'active')
         )
         created_count += 1
@@ -364,7 +370,7 @@ def populate_categories(conn, cursor):
     for cat_data in categories_data:
         cat_id = str(uuid.uuid4())
         cursor.execute(
-            'INSERT INTO categories (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO categories (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (cat_id, cat_data['name'], cat_data['description'], 'active')
         )
         created_count += 1
@@ -433,7 +439,7 @@ def populate_kitchens(conn, cursor):
     for kitchen_data in kitchens_data:
         kitchen_id = str(uuid.uuid4())
         cursor.execute(
-            'INSERT INTO kitchens (id, name, location, description, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO kitchens (id, name, location, description, status) VALUES (%s, %s, %s, %s, %s)',
             (kitchen_id, kitchen_data["name"], kitchen_data["location"], kitchen_data["description"], 'active')
         )
         created_count += 1
@@ -457,7 +463,7 @@ def populate_order_types(conn, cursor):
     for order_type_data in order_types_data:
         order_type_id = str(uuid.uuid4())
         cursor.execute(
-            'INSERT INTO order_types (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO order_types (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (order_type_id, order_type_data['name'], order_type_data['description'], 'active')
         )
         created_count += 1
@@ -521,7 +527,7 @@ def populate_tables(conn, cursor):
             for table_config in tables_per_area[area_name]:
                 table_id = str(uuid.uuid4())
                 cursor.execute(
-                    'INSERT INTO tables (id, number, area_id, area_name, capacity, status) VALUES (?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO tables (id, number, area_id, area_name, capacity, status) VALUES (%s, %s, %s, %s, %s, %s)',
                     (table_id, table_config['number'], area_id, area_name, table_config['capacity'], 'available')
                 )
                 created_count += 1
@@ -607,14 +613,14 @@ def populate_food_items(conn, cursor):
             cursor.execute(
                 '''INSERT INTO food_items (id, name, category_id, category_name, kitchen_id, kitchen_name, 
                    price, description, specifications, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (food_id, item_data["name"], cat_id, cat_name, kitchen_id, kitchen_name,
                  item_data["price"], "", item_data["specs"], 'available')
             )
             
             # Update counts
-            cursor.execute('UPDATE categories SET items_count = items_count + 1 WHERE id = ?', (cat_id,))
-            cursor.execute('UPDATE kitchens SET items_count = items_count + 1 WHERE id = ?', (kitchen_id,))
+            cursor.execute('UPDATE categories SET items_count = items_count + 1 WHERE id = %s', (cat_id,))
+            cursor.execute('UPDATE kitchens SET items_count = items_count + 1 WHERE id = %s', (kitchen_id,))
             
             created_count += 1
             print(f"  ✓ Added: {item_data['name']}")
@@ -675,7 +681,7 @@ def populate_appliances(conn, cursor):
             cursor.execute(
                 '''INSERT INTO appliances (id, name, type, model, serial_number, description, status, 
                    purchase_date, last_maintenance, notes)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (appliance_id, appliance["name"], appliance["type"], appliance.get("model", ""),
                  appliance.get("serial_number", ""), appliance.get("description", ""), 'active',
                  appliance.get("purchase_date"), appliance.get("last_maintenance"), "")
@@ -738,12 +744,12 @@ def populate_kitchen_appliances(conn, cursor):
                 
                 cursor.execute(
                     '''INSERT INTO kitchen_appliances (id, kitchen_id, appliance_id, quantity, location, status)
-                       VALUES (?, ?, ?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s, %s, %s)''',
                     (mapping_id, kitchen_id, appliance_id, 1, location, 'active')
                 )
                 created_count += 1
                 print(f"  ✓ Assigned {appliance_name} to Kitchen (Location: {location})")
-            except sqlite3.IntegrityError:
+            except pymysql.IntegrityError:
                 # Skip if already exists
                 continue
             except Exception as e:
@@ -817,7 +823,7 @@ def populate_iot_devices(conn, cursor):
             cursor.execute(
                 '''INSERT INTO iot_devices (id, name, device_type, device_id, location, kitchen_id, description, 
                    status, battery_level, signal_strength, firmware_version)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (device_id, device["name"], device["device_type"], device["device_id"],
                  device["location"], kitchen_id, device.get("description", ""), 'active',
                  device.get("battery_level"), device.get("signal_strength"), device.get("firmware_version", ""))
@@ -900,7 +906,7 @@ def populate_staff(conn, cursor):
             cursor.execute(
                 '''INSERT INTO staff (id, name, email, phone, position, department, kitchen_id, 
                    hire_date, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (staff_id, staff["name"], staff.get("email", ""), staff.get("phone", ""),
                  staff["position"], staff["department"], kitchen_id, 
                  staff.get("hire_date"), 'active')
@@ -973,7 +979,7 @@ def populate_staff_kitchen_requests(conn, cursor):
                 INSERT INTO staff_kitchen_requests 
                 (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_reason, 
                  requested_start_date, approval_status, approved_by, approval_notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 req_id,
                 request_data['staff_id'],
@@ -998,7 +1004,7 @@ def populate_staff_kitchen_assignments(conn, cursor):
     """Populate staff kitchen assignments based on approved requests"""
     print("Populating staff kitchen assignments...")
     import uuid
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     # Get approved requests
     cursor.execute('''
@@ -1015,7 +1021,7 @@ def populate_staff_kitchen_assignments(conn, cursor):
             cursor.execute('''
                 INSERT INTO staff_kitchen_assignments 
                 (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_id, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 assign_id,
                 request['staff_id'],

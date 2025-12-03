@@ -1,0 +1,43 @@
+<!-- Order Management Section -->
+<div class="page-section" id="order-management">
+    <div class="section-header">
+        <h2>📋 Order Management</h2>
+        <p>Assign food items from orders to corresponding kitchens</p>
+    </div>
+    
+    <div class="action-bar">
+        <div>
+            <select id="order-filter-status" style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 14px; cursor: pointer;">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="preparing">Preparing</option>
+                <option value="ready">Ready</option>
+                <option value="served">Served</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="refreshOrdersList()">
+            🔄 Refresh Orders
+        </button>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+        <!-- Orders List -->
+        <div class="card">
+            <h3 style="margin-top: 0; color: #333;">Active Orders</h3>
+            <div id="orders-list-container" style="max-height: 600px; overflow-y: auto;">
+                <div style="text-align: center; color: #ccc; padding: 20px;">Loading orders...</div>
+            </div>
+        </div>
+        
+        <!-- Order Details & Kitchen Assignment -->
+        <div class="card">
+            <h3 style="margin-top: 0; color: #333;">Order Details</h3>
+            <div id="order-details-container" style="min-height: 400px;">
+                <div style="text-align: center; color: #ccc; padding: 40px;">
+                    <p>Select an order to view details and assign items to kitchens</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

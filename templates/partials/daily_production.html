@@ -1,0 +1,67 @@
+<!-- Daily Production Section -->
+<div class="page-section" id="daily-production">
+    <div class="section-header">
+        <h2>Daily Production Planning</h2>
+        <p>Set daily meal production quantities for each food item</p>
+    </div>
+    
+    <div class="action-bar">
+        <div>
+            <input type="date" id="production-date" class="btn" style="padding: 10px;" value="">
+        </div>
+        <button class="btn btn-primary" onclick="openProductionModal()">
+            + Add Production Item
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="production-table">
+                <thead>
+                    <tr>
+                        <th>Food Item</th>
+                        <th>Category</th>
+                        <th>Planned Quantity</th>
+                        <th>Produced</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="production-tbody">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <p>No production items for today. Add your first production plan!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 15px; color: #333;">Production Summary</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Items Planned</p>
+                <h4 style="color: #667eea; font-size: 24px;" id="total-planned">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Produced</p>
+                <h4 style="color: #28a745; font-size: 24px;" id="total-produced">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Remaining</p>
+                <h4 style="color: #ffc107; font-size: 24px;" id="total-remaining">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Completion Rate</p>
+                <h4 style="color: #667eea; font-size: 24px;" id="completion-rate">0%</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/daily_production.js') }}"></script>

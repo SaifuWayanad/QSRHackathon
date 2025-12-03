@@ -1,0 +1,70 @@
+<!-- Staff Management Section -->
+<div class="page-section" id="staff">
+    <div class="section-header">
+        <h2>Staff Management</h2>
+        <p>Manage and track restaurant staff members</p>
+    </div>
+    
+    <div class="action-bar">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="color: #333; font-weight: 600;">Filter by Department:</label>
+            <select id="staff-department-filter" onchange="loadStaff()" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                <option value="">All Departments</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="openStaffModal()">
+            + Add Staff Member
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="staff-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Position</th>
+                        <th>Department</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Kitchen</th>
+                        <th>Hire Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="staff-tbody">
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <p>No staff members yet. Add your first staff member!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 15px; color: #333;">Staff Statistics</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Total Staff</p>
+                <h4 style="color: #667eea; font-size: 24px;" id="total-staff">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Active Staff</p>
+                <h4 style="color: #28a745; font-size: 24px;" id="active-staff">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Kitchen Staff</p>
+                <h4 style="color: #ffc107; font-size: 24px;" id="kitchen-staff">0</h4>
+            </div>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">Front of House</p>
+                <h4 style="color: #17a2b8; font-size: 24px;" id="foh-staff">0</h4>
+            </div>
+        </div>
+    </div>
+</div>
