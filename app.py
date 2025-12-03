@@ -12,6 +12,23 @@ except ImportError:
     print("⚠️  Stream integration not available (optional)")
     push_order_to_stream = None
 
+# Import Kitchen Agent
+try:
+    from Agents.KitchenAgent import kitchen_agent
+except ImportError:
+    print("⚠️  Kitchen Agent not available (optional)")
+    kitchen_agent = None
+
+# Import Order Monitor
+try:
+    from Agents.order_monitor import start_order_monitor, stop_order_monitor, get_today_orders_count, get_today_summary
+except ImportError:
+    print("⚠️  Order Monitor not available (optional)")
+    start_order_monitor = None
+    stop_order_monitor = None
+    get_today_orders_count = None
+    get_today_summary = None
+
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
@@ -282,6 +299,74 @@ def init_db():
     conn.commit()
     conn.close()
     print("✓ Database initialized successfully")
+
+# ========================================================================
+# KITCHEN AGENT HELPER FUNCTIONS
+# ========================================================================
+
+def ask_kitchen_agent(query: str, context: dict = None) -> dict:
+    """
+    Ask the kitchen agent a question or request regarding order management.
+    
+    Args:
+        query (str): The question or request to ask the kitchen agent
+        context (dict): Optional context data (order info, kitchen stats, etc.)
+    
+    Returns:
+        dict: Response from the agent with status and message
+    
+    Example:
+        ask_kitchen_agent("What's the current status of order ABC123?")
+        ask_kitchen_agent("How many items are waiting in the main kitchen?")
+        ask_kitchen_agent("Should we start preparing the next order?")
+    """
+    if not kitchen_agent:
+        return {
+            'success': False,
+            'error': 'Kitchen Agent is not available',
+            'message': 'The kitchen agent service is not configured'
+        }
+    
+    try:
+        # Build the prompt with context if provided
+        prompt = query
+        
+        if context:
+            prompt += "\n\nContext Information:"
+            if 'order' in context:
+                order = context['order']
+                prompt += f"\n- Order ID: {order.get('id', 'N/A')}"
+                prompt += f"\n- Table: {order.get('table_name', 'N/A')}"
+                prompt += f"\n- Status: {order.get('status', 'N/A')}"
+                prompt += f"\n- Items: {order.get('items_count', 0)}"
+            
+            if 'kitchen_stats' in context:
+                stats = context['kitchen_stats']
+                prompt += f"\n- Total Items in Kitchens: {stats.get('total_items', 0)}"
+                prompt += f"\n- Pending Items: {stats.get('pending_items', 0)}"
+                prompt += f"\n- Ready Items: {stats.get('ready_items', 0)}"
+            
+            if 'notes' in context:
+                prompt += f"\n- Additional Notes: {context['notes']}"
+        
+        # Run the agent
+        response = kitchen_agent.run(prompt)
+        
+        return {
+            'success': True,
+            'message': str(response),
+            'query': query,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    except Exception as e:
+        print(f"Error asking kitchen agent: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to process kitchen agent request',
+            'query': query
+        }
 
 # Manager credentials
 MANAGER_USERNAME = 'manager'
@@ -849,6 +934,41 @@ def order_items(order_id):
     items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
     conn.close()
     return jsonify({'items': [dict(row) for row in items_rows]})
+
+
+# ============================================================================
+# DAILY ORDERS MONITORING API
+# ============================================================================
+
+@app.route('/api/orders/today/count', methods=['GET'])
+def get_today_orders_count_api():
+    """Get the count of orders created today"""
+    if get_today_orders_count:
+        count = get_today_orders_count()
+        return jsonify({
+            'success': True,
+            'today_orders_count': count,
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    return jsonify({
+        'success': False,
+        'error': 'Order monitor not available'
+    }), 500
+
+
+@app.route('/api/orders/today/summary', methods=['GET'])
+def get_today_orders_summary_api():
+    """Get comprehensive summary of today's orders"""
+    if get_today_summary:
+        summary = get_today_summary()
+        return jsonify(summary)
+    
+    return jsonify({
+        'success': False,
+        'error': 'Order monitor not available'
+    }), 500
 
 
 # Appliances API
@@ -1691,8 +1811,106 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"✓ Migration check: {e}")
     
-    app.run(debug=True, host='0.0.0.0', port=5100)
+    # Start Order Monitor if available
+    if start_order_monitor:
+        try:
+            start_order_monitor()
+            print("✓ Order Monitor started (runs every 5 seconds)")
+        except Exception as e:
+            print(f"⚠️  Could not start Order Monitor: {e}")
+    
+    app.run(debug=True, host='0.0.0.0', port=5100)# ============================================================================
+# WEBHOOK API FOR EXTERNAL ORDER INTEGRATION
+# ============================================================================
 
+@app.route('/webhook/receive-order', methods=['POST'])
+def receive_order_webhook():
+    """
+    Webhook endpoint to receive orders from external systems (POS, mobile apps, etc).
+    
+    Expected JSON payload (simplified):
+    {
+        "order_id": "ORD-2024-001",
+        "customer_name": "John Doe",
+        "phone_number": "555-1234",
+        "created_date": "2024-12-03T10:30:00"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "order_id": "ORD-2024-001",
+        "message": "Order received and stored",
+        "created_at": "2024-12-03T10:30:00"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('order_id'):
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: order_id'
+            }), 400
+        
+        if not data.get('customer_name'):
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: customer_name'
+            }), 400
+        
+        if not data.get('phone_number'):
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: phone_number'
+            }), 400
+        
+        if not data.get('created_date'):
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: created_date'
+            }), 400
+        
+        # Process order into database
+        conn = get_db_connection()
+        db_order_id = str(uuid.uuid4())
+        created_date = data.get('created_date')
+        
+        # Insert order with webhook data
+        conn.execute(
+            '''INSERT INTO orders (id, order_number, customer_name, status, notes, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (db_order_id, data.get('order_id'), data.get('customer_name'), 'pending',
+             f"Phone: {data.get('phone_number')}", created_date, datetime.now().isoformat())
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        # Build response
+        response = {
+            'success': True,
+            'order_id': data.get('order_id'),
+            'customer_name': data.get('customer_name'),
+            'phone_number': data.get('phone_number'),
+            'created_at': created_date,
+            'message': 'Order received and stored'
+        }
+        
+        # Push order to stream database for Kitchen Agent processing if available
+        if push_order_to_stream:
+            push_order_to_stream(response)
+        
+        return jsonify(response), 201
+    
+    except Exception as e:
+        print(f"Error in receive_order_webhook: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to process webhook order'
+        }), 500
 
 
 # ============================================================================
@@ -1916,3 +2134,85 @@ def transition_item_status(item_id):
         'status_label': KitchenManager.STATUS_LABELS.get(new_status),
         'status_color': KitchenManager.STATUS_COLORS.get(new_status)
     })
+
+@app.route('/api/kitchen-agent/ask', methods=['POST'])
+def kitchen_agent_ask():
+    """Ask the kitchen agent a question about orders and kitchen operations"""
+    data = request.get_json()
+    query = data.get('query')
+    include_context = data.get('include_context', False)
+    order_id = data.get('order_id')
+    
+    if not query:
+        return jsonify({'error': 'Query is required'}), 400
+    
+    # Build context if requested
+    context = {}
+    
+    if include_context and order_id:
+        conn = get_db_connection()
+        order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+        
+        if order:
+            context['order'] = {
+                'id': order['id'],
+                'table_name': order['table_name'],
+                'status': order['status'],
+                'items_count': len(conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall())
+            }
+        
+        # Get kitchen stats
+        items = conn.execute('SELECT status FROM order_items').fetchall()
+        context['kitchen_stats'] = {
+            'total_items': len(items),
+            'pending_items': len([i for i in items if i['status'] == 'pending']),
+            'ready_items': len([i for i in items if i['status'] == 'ready'])
+        }
+        
+        conn.close()
+    elif include_context:
+        # Get general kitchen stats
+        conn = get_db_connection()
+        items = conn.execute('SELECT status FROM order_items').fetchall()
+        context['kitchen_stats'] = {
+            'total_items': len(items),
+            'pending_items': len([i for i in items if i['status'] == 'pending']),
+            'ready_items': len([i for i in items if i['status'] == 'ready'])
+        }
+        conn.close()
+    
+    # Ask the agent
+    response = ask_kitchen_agent(query, context if context else None)
+    
+    return jsonify(response)
+
+@app.route('/api/kitchen-agent/suggest', methods=['POST']) 
+def kitchen_agent_suggest():
+    """Get suggestions from the kitchen agent for current operations"""
+    data = request.get_json()
+    
+    conn = get_db_connection()
+    
+    # Get current kitchen status
+    orders = conn.execute('SELECT COUNT(*) as count FROM orders WHERE status = "pending"').fetchone()
+    items = conn.execute('SELECT status, COUNT(*) as count FROM order_items GROUP BY status').fetchall()
+    
+    stats = {
+        'pending_orders': orders['count'],
+        'items_by_status': {item['status']: item['count'] for item in items}
+    }
+    
+    conn.close()
+    
+    # Ask agent for suggestions
+    prompt = f"""
+    Based on the current kitchen operations, provide helpful suggestions:
+    - Pending Orders: {stats['pending_orders']}
+    - Items by Status: {stats['items_by_status']}
+    
+    Please suggest ways to improve efficiency or address any bottlenecks.
+    """
+    
+    response = ask_kitchen_agent(prompt, {'kitchen_stats': stats})
+    
+    return jsonify(response)
