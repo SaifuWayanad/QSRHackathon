@@ -4553,7 +4553,7 @@
                     
                     const tbody = document.getElementById('iot-devices-tbody');
                     if (devices.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>No IoT devices found.</p></div></td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><p>No IoT devices found.</p></div></td></tr>';
                         updateIoTStats(data.devices || []);
                         return;
                     }
@@ -4565,6 +4565,7 @@
                             <td>${device.device_id || '-'}</td>
                             <td>${device.kitchen_id ? device.kitchen_id.substring(0, 8) : '-'}</td>
                             <td>${device.location || '-'}</td>
+                            <td><strong style="color: #667eea;">${device.current_value !== null && device.current_value !== undefined ? device.current_value : '-'}</strong></td>
                             <td>${device.battery_level ? device.battery_level + '%' : '-'}</td>
                             <td>${device.signal_strength ? device.signal_strength + '%' : '-'}</td>
                             <td><span class="badge badge-${device.status === 'active' ? 'success' : 'warning'}">${device.status}</span></td>
@@ -4579,7 +4580,7 @@
                 })
                 .catch(error => {
                     console.error('Error loading IoT devices:', error);
-                    document.getElementById('iot-devices-tbody').innerHTML = '<tr><td colspan="10"><div class="empty-state"><p>Error loading devices.</p></div></td></tr>';
+                    document.getElementById('iot-devices-tbody').innerHTML = '<tr><td colspan="11"><div class="empty-state"><p>Error loading devices.</p></div></td></tr>';
                 });
         }
         
