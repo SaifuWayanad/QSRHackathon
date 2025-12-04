@@ -21,12 +21,11 @@ from Agents.customer_instructions import customer_instructions
 from constants import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
 # Set API keys
-ANTHROPIC_API_KEY = "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"
+from constants import ANTHROPIC_API_KEY
+# ANTHROPIC_API_KEY = "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"
 os.environ["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
 
 # Initialize Google Gemini model
-gemini_model = Gemini("gemini-2.5-flash", api_key="AIzaSyD6v6dOt-hxwzcZWhwrizKfgM_oiwJjXTw")
-os.environ["GOOGLE_API_KEY"] = "AIzaSyD6v6dOt-hxwzcZWhwrizKfgM_oiwJjXTw"
 
 
 def get_main_db_connection():
@@ -228,6 +227,7 @@ customer_agent = Agent(
     instructions=customer_instructions,
     tools=[execute_database_query],
     markdown=False, # Hide backend query execution from user
+    
     debug_mode=False
 )
 

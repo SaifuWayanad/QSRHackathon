@@ -1,0 +1,5 @@
+Timestamp: 2025-12-04 14:55:06
+Event: new_order_recieved
+============================================================
+
+Error: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CVmQVuo36Bginw9aZsLVH'}

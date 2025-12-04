@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QSR Sustainability & Efficiency</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg: #0b1120;
+            --bg-card: #020617;
+            --accent: #22c55e;
+            --accent-soft: rgba(34, 197, 94, 0.1);
+            --accent-orange: #fb923c;
+            --accent-blue: #38bdf8;
+            --border: #1f2937;
+            --text-main: #e5e7eb;
+            --text-muted: #9ca3af;
+            --pill-bg: #111827;
+            --danger: #f97373;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1f2937 0, #020617 40%, #020617 100%);
+            color: var(--text-main);
+        }
+
+        .page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+            background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7));
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 30%, #bbf7d0, #22c55e 40%, #166534 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+            font-size: 18px;
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            font-size: 17px;
+        }
+
+        .brand-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        nav a {
+            text-decoration: none;
+            font-size: 14px;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        nav a:hover {
+            border-color: var(--border);
+            color: var(--text-main);
+        }
+
+        nav a.active {
+            border-color: var(--accent);
+            color: #bbf7d0;
+            background: rgba(22, 163, 74, 0.15);
+        }
+
+        main {
+            padding: 24px;
+            max-width: 1200px;
+            margin: 0 auto 32px auto;
+            width: 100%;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-title span.icon {
+            font-size: 22px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            max-width: 720px;
+        }
+
+        .chips-row {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
+            font-size: 11px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: var(--pill-bg);
+            border: 1px solid var(--border);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+        }
+
+        .chip-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+        }
+
+        .chip-dot.green {
+            background: var(--accent);
+        }
+
+        .chip-dot.orange {
+            background: var(--accent-orange);
+        }
+
+        .chip-dot.blue {
+            background: var(--accent-blue);
+        }
+
+        .chip-dot.red {
+            background: var(--danger);
+        }
+
+        .layout-grid {
+            margin-top: 22px;
+            display: grid;
+            grid-template-columns: 2fr 1.5fr;
+            gap: 18px;
+        }
+
+        .card {
+            background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), transparent 55%),
+                        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.1), transparent 60%),
+                        var(--bg-card);
+            border-radius: 18px;
+            padding: 16px 18px;
+            border: 1px solid rgba(31, 41, 55, 0.9);
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.7);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .kpi-pill {
+            border-radius: 16px;
+            padding: 10px 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border);
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .kpi-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .kpi-tag {
+            margin-top: 4px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 6px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: #bbf7d0;
+        }
+
+        .kpi-tag.orange {
+            background: rgba(251, 146, 60, 0.14);
+            color: #fed7aa;
+        }
+
+        .kpi-tag.blue {
+            background: rgba(56, 189, 248, 0.14);
+            color: #bae6fd;
+        }
+
+        .kpi-tag.red {
+            background: rgba(248, 113, 113, 0.14);
+            color: #fecaca;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(22, 163, 74, 0.12);
+            color: #bbf7d0;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .card-body {
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .card-body p {
+            margin: 6px 0;
+        }
+
+        .bullet-list {
+            padding-left: 18px;
+            margin: 8px 0;
+        }
+
+        .bullet-list li {
+            margin: 2px 0;
+        }
+
+        .subsection-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-top: 12px;
+            margin-bottom: 4px;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .pill {
+            font-size: 11px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: #020617;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .mini-section {
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 12px;
+            padding: 10px 11px;
+            border: 1px dashed rgba(55, 65, 81, 0.7);
+        }
+
+        .mini-section-title {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .footer-note {
+            margin-top: 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .link-inline {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .link-inline:hover {
+            text-decoration: underline;
+        }
+
+        .table-wrapper {
+            margin-top: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        thead {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        th, td {
+            padding: 7px 9px;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(15, 23, 42, 0.6);
+        }
+
+        tbody tr:hover {
+            background: rgba(31, 41, 55, 0.8);
+        }
+
+        .cell-pill {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            display: inline-block;
+        }
+
+        .cell-pill.good {
+            border-color: rgba(34, 197, 94, 0.7);
+            color: #bbf7d0;
+        }
+
+        .cell-pill.warn {
+            border-color: rgba(251, 146, 60, 0.7);
+            color: #fed7aa;
+        }
+
+        .cell-pill.bad {
+            border-color: rgba(248, 113, 113, 0.7);
+            color: #fecaca;
+        }
+
+        .legend-row {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+        }
+
+        .legend-dot.good {
+            background: var(--accent);
+        }
+
+        .legend-dot.warn {
+            background: var(--accent-orange);
+        }
+
+        .legend-dot.bad {
+            background: var(--danger);
+        }
+
+        @media (max-width: 900px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            nav {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+
+            main {
+                padding: 18px 14px 28px 14px;
+            }
+
+            .card-kpi-row {
+                grid-template-columns: 1fr;
+            }
+
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <div class="brand">
+            <div class="brand-logo">♻</div>
+            <div class="brand-text">
+                <div class="brand-title">GreenOps</div>
+                <div class="brand-subtitle">Sustainability & Efficiency</div>
+            </div>
+        </div>
+        <!-- <nav>
+            <a href="/dashboard">Kitchen Dashboard</a>
+            <a href="/customer-chat">Customer Agent</a>
+            <a href="/sustainability" class="active">Sustainability &amp; Efficiency</a>
+        </nav> -->
+    </header>
+
+    <main>
+        <div class="page-title">
+            <span class="icon">🌍</span>
+            Sustainability &amp; Operational Efficiency
+        </div>
+        <div class="page-subtitle">
+            This view connects day-to-day QSR operations with environmental impact —
+            tracking food waste, energy usage, and idle capacity to drive leaner, greener,
+            and more profitable stores.
+        </div>
+
+        <div class="chips-row">
+            <div class="chip">
+                <span class="chip-dot green"></span>
+                Food waste as a KPI, not an afterthought
+            </div>
+            <div class="chip">
+                <span class="chip-dot orange"></span>
+                Energy-aware kitchen scheduling
+            </div>
+            <div class="chip">
+                <span class="chip-dot blue"></span>
+                Idle capacity → targeted promos
+            </div>
+        </div>
+
+        <div class="layout-grid">
+            <!-- LEFT: KPI snapshot + narrative -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        Yesterday’s Sustainability Snapshot
+                    </div>
+                    <span class="badge">Demo data – static view</span>
+                </div>
+
+                <div class="card-kpi-row">
+                    <div class="kpi-pill">
+                        <div class="kpi-label">Food Waste</div>
+                        <div class="kpi-value">26 kg</div>
+                        <div class="kpi-tag red">
+                            ≈ 125 meals lost
+                        </div>
+                    </div>
+                    <div class="kpi-pill">
+                        <div class="kpi-label">Energy Usage</div>
+                        <div class="kpi-value">1.9 MWh</div>
+                        <div class="kpi-tag orange">
+                            +8% vs. efficient baseline
+                        </div>
+                    </div>
+                    <div class="kpi-pill">
+                        <div class="kpi-label">Idle Capacity</div>
+                        <div class="kpi-value">32%</div>
+                        <div class="kpi-tag blue">
+                            Off-peak promo opportunity
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <p>
+                        <strong>What this means:</strong> yesterday, 26 kg of prepared food
+                        never reached a plate — that is enough to feed around 125 people.
+                        At the same time, ovens and fryers were running above the energy
+                        baseline while 30%+ of capacity sat idle during certain windows.
+                    </p>
+
+                    <p>
+                        <strong>How our AI agents help:</strong>
+                    </p>
+                    <ul class="bullet-list">
+                        <li>
+                            <strong>Customer Handling Agent (CHA)</strong> nudges customers to
+                            order mindfully and right-size portions, reducing over-ordering.
+                        </li>
+                        <li>
+                            <strong>Kitchen &amp; Demand Agents</strong> adjust production
+                            plans and staffing to match predicted demand and minimise waste.
+                        </li>
+                        <li>
+                            <strong>Promo &amp; Capacity Agent (future)</strong> can trigger
+                            off-peak offers when idle time crosses a threshold.
+                        </li>
+                    </ul>
+
+                    <div class="subsection-title">Environmental & business linkage</div>
+                    <div class="two-col">
+                        <div class="mini-section">
+                            <div class="mini-section-title">Environmental impact</div>
+                            <ul class="bullet-list">
+                                <li>Lower food waste → lower upstream emissions.</li>
+                                <li>Energy-aware cooking windows reduce CO₂ footprint.</li>
+                                <li>Smarter prep → fewer emergency deliveries.</li>
+                            </ul>
+                        </div>
+                        <div class="mini-section">
+                            <div class="mini-section-title">Operational excellence</div>
+                            <ul class="bullet-list">
+                                <li>Less waste directly improves store margin.</li>
+                                <li>Optimised equipment run-time extends asset life.</li>
+                                <li>Idle capacity converted to revenue via targeted offers.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="footer-note">
+                        <span>💡</span>
+                        <span>
+                            In the full system, these numbers would be fed live by the
+                            same data streams powering your kitchen dashboard and agents.
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT: breakdown table + initiatives -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        Store-Level View &amp; Actions
+                    </div>
+                    <span class="badge">What a manager sees</span>
+                </div>
+
+                <div class="card-body">
+                    <p>
+                        This panel shows how individual levers (menu, production, staffing)
+                        contribute to sustainability outcomes, so managers can act within
+                        a shift — not at month-end.
+                    </p>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Yesterday</th>
+                                <th>Target</th>
+                                <th>Status</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>Food waste (kg)</td>
+                                <td>26 kg</td>
+                                <td>&lt; 15 kg</td>
+                                <td><span class="cell-pill bad">Needs improvement</span></td>
+                            </tr>
+                            <tr>
+                                <td>Energy per order</td>
+                                <td>+8% baseline</td>
+                                <td>&lt; +2%</td>
+                                <td><span class="cell-pill warn">Above ideal</span></td>
+                            </tr>
+                            <tr>
+                                <td>Idle cooking capacity</td>
+                                <td>32%</td>
+                                <td>&lt; 20%</td>
+                                <td><span class="cell-pill warn">Promo potential</span></td>
+                            </tr>
+                            <tr>
+                                <td>On-time orders</td>
+                                <td>93%</td>
+                                <td>&gt; 95%</td>
+                                <td><span class="cell-pill good">Close to target</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="legend-row">
+                        <div class="legend-item">
+                            <span class="legend-dot good"></span> On/near target
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot warn"></span> Watch / optimise
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot bad"></span> Needs immediate action
+                        </div>
+                    </div>
+
+                    <div class="subsection-title">Playbook: how the system reacts</div>
+                    <ul class="bullet-list">
+                        <li>
+                            <strong>High waste detected:</strong> tighten production plan,
+                            shrink batch sizes, and CHA adds “right portion” nudges.
+                        </li>
+                        <li>
+                            <strong>Energy spike:</strong> stagger equipment usage and
+                            auto-suggest consolidating bake/fry windows.
+                        </li>
+                        <li>
+                            <strong>High idle capacity:</strong> push low-friction
+                            upsell bundles and limited-time offers in the app / kiosks.
+                        </li>
+                    </ul>
+
+                    <div class="subsection-title">Signals tracked (static demo)</div>
+                    <div class="pill-row">
+                        <div class="pill">Prep vs. sold delta</div>
+                        <div class="pill">Equipment run-time</div>
+                        <div class="pill">Table &amp; queue occupancy</div>
+                        <div class="pill">Order cancel &amp; modify</div>
+                        <div class="pill">Off-peak order volume</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

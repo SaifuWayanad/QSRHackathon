@@ -425,7 +425,8 @@ def db_run_query_tool(conn, query, params=None):
 # PgVector already imported at top with try/except
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-ANTHROPIC_API_KEY =  "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"
+from constants import ANTHROPIC_API_KEY2
+# ANTHROPIC_API_KEY =  "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"
 
 # Global knowledge variable
 knowledge = None
@@ -485,7 +486,7 @@ try:
     if Claude is None:
         print("⚠️  Kitchen Agent initialization skipped: Claude not available")
         kitchen_agent = None
-    elif ANTHROPIC_API_KEY is None:
+    elif ANTHROPIC_API_KEY2 is None:
         print("⚠️  Kitchen Agent initialization skipped: ANTHROPIC_API_KEY not set")
         kitchen_agent = None
     else:
@@ -495,7 +496,7 @@ try:
                         # id="claude-sonnet-4-20250514",
                         # id="claude-haiku-4-20250514",
                         id="claude-3-5-haiku-20241022",
-                        api_key=ANTHROPIC_API_KEY
+                        api_key=ANTHROPIC_API_KEY2
                     ),
                 instructions=kitchen_instructions,
                 knowledge=kb,  # Use the knowledge base if available (can be None)

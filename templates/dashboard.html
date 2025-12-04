@@ -679,6 +679,254 @@
             padding-top: 12px;
             border-top: 2px solid #f0f0f0;
         }
+
+        /* Sustainability Dashboard Styles */
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .badge {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .card-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-pill {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .kpi-tag {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .kpi-tag.red {
+            background: #fee;
+            color: #c33;
+        }
+
+        .kpi-tag.orange {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .kpi-tag.blue {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .card-body {
+            line-height: 1.6;
+        }
+
+        .card-body p {
+            margin-bottom: 16px;
+            color: #555;
+        }
+
+        .bullet-list {
+            margin: 12px 0 12px 20px;
+            color: #555;
+        }
+
+        .bullet-list li {
+            margin-bottom: 8px;
+        }
+
+        .subsection-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin: 24px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 16px;
+        }
+
+        .mini-section {
+            background: #f9f9f9;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .mini-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+
+        .footer-note {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            background: #fffbf0;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        .table-wrapper table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-wrapper thead {
+            background: #f8f9fa;
+        }
+
+        .table-wrapper th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .table-wrapper td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #555;
+        }
+
+        .cell-pill {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .cell-pill.good {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .cell-pill.warn {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .cell-pill.bad {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .legend-row {
+            display: flex;
+            gap: 24px;
+            margin: 20px 0;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.good {
+            background: #2e7d32;
+        }
+
+        .legend-dot.warn {
+            background: #e65100;
+        }
+
+        .legend-dot.bad {
+            background: #c62828;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .pill {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 16px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -829,7 +1077,170 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Sustainability Dashboard -->
+                <div style="margin-top: 40px;">
+                    <div class="section-header">
+                        <h2>🌱 Sustainability & Operations</h2>
+                        <p>Environmental impact and operational excellence metrics</p>
+                    </div>
+
+                    <div class="layout-grid">
+                        <!-- LEFT: KPI snapshot + narrative -->
+                        <section class="card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Yesterday's Sustainability Snapshot
+                                </div>
+                                <span class="badge">Demo data – static view</span>
+                            </div>
+
+                            <div class="card-kpi-row">
+                                <div class="kpi-pill">
+                                    <div class="kpi-label">Food Waste</div>
+                                    <div class="kpi-value">26 kg</div>
+                                    <div class="kpi-tag red">
+                                        ≈ 125 meals lost
+                                    </div>
+                                </div>
+                                <div class="kpi-pill">
+                                    <div class="kpi-label">Energy Usage</div>
+                                    <div class="kpi-value">1.9 MWh</div>
+                                    <div class="kpi-tag orange">
+                                        +8% vs. efficient baseline
+                                    </div>
+                                </div>
+                                <div class="kpi-pill">
+                                    <div class="kpi-label">Idle Capacity</div>
+                                    <div class="kpi-value">32%</div>
+                                    <div class="kpi-tag blue">
+                                        Off-peak promo opportunity
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <p>
+                                    <strong>What this means:</strong> yesterday, 26 kg of prepared food
+                                    never reached a plate — that is enough to feed around 125 people.
+                                    At the same time, ovens and fryers were running above the energy
+                                    baseline while 30%+ of capacity sat idle during certain windows.
+                                </p>
+
+                                
+
+                                <div class="two-col">
+                                    <div class="mini-section">
+                                        <div class="mini-section-title">Environmental impact</div>
+                                        <ul class="bullet-list">
+                                            <li>Lower food waste → lower upstream emissions.</li>
+                                            <li>Energy-aware cooking windows reduce CO₂ footprint.</li>
+                                            <li>Smarter prep → fewer emergency deliveries.</li>
+                                        </ul>
+                                    </div>
+                                    <div class="mini-section">
+                                        <div class="mini-section-title">Operational excellence</div>
+                                        <ul class="bullet-list">
+                                            <li>Less waste directly improves store margin.</li>
+                                            <li>Optimised equipment run-time extends asset life.</li>
+                                            <li>Idle capacity converted to revenue via targeted offers.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="footer-note">
+                                    <span>💡</span>
+                                    <span>
+                                        In the full system, these numbers would be fed live by the
+                                        same data streams powering your kitchen dashboard and agents.
+                                    </span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- RIGHT: breakdown table + initiatives -->
+                        <section class="card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Store-Level View &amp; Actions
+                                </div>
+                                <span class="badge">What a manager sees</span>
+                            </div>
+
+                            <div class="card-body">
+                                <p>
+                                    This panel shows how individual levers (menu, production, staffing)
+                                    contribute to sustainability outcomes, so managers can act within
+                                    a shift — not at month-end.
+                                </p>
+
+                                <div class="table-wrapper">
+                                    <table>
+                                        <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            <th>Yesterday</th>
+                                            <th>Target</th>
+                                            <th>Status</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td>Food waste (kg)</td>
+                                            <td>26 kg</td>
+                                            <td>&lt; 15 kg</td>
+                                            <td><span class="cell-pill bad">Needs improvement</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Energy per order</td>
+                                            <td>+8% baseline</td>
+                                            <td>&lt; +2%</td>
+                                            <td><span class="cell-pill warn">Above ideal</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Idle cooking capacity</td>
+                                            <td>32%</td>
+                                            <td>&lt; 20%</td>
+                                            <td><span class="cell-pill warn">Promo potential</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>On-time orders</td>
+                                            <td>93%</td>
+                                            <td>&gt; 95%</td>
+                                            <td><span class="cell-pill good">Close to target</span></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="legend-row">
+                                    <div class="legend-item">
+                                        <span class="legend-dot good"></span> On/near target
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-dot warn"></span> Watch / optimise
+                                    </div>
+                                    <div class="legend-item">
+                                        <span class="legend-dot bad"></span> Needs immediate action
+                                    </div>
+                                </div>
+
+                               
+
+                                <div class="subsection-title">Signals tracked (static demo)</div>
+                                <div class="pill-row">
+                                    <div class="pill">Prep vs. sold delta</div>
+                                    <div class="pill">Equipment run-time</div>
+                                    <div class="pill">Table &amp; queue occupancy</div>
+                                    <div class="pill">Order cancel &amp; modify</div>
+                                    <div class="pill">Off-peak order volume</div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
             </div>
+
             
             <!-- Kitchen Monitoring Section -->
             {% include 'partials/kitchen_monitor.html' %}

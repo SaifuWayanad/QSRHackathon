@@ -620,12 +620,34 @@ def api_customer_chat_stream():
                 full_response = ""
                 
                 # Yield chunks as they come
+                response = customer_agent.run(context_message, stream=True)
+
+                full_response = ""
+
                 for chunk in response:
-                    if hasattr(chunk, 'content') and chunk.content:
-                        print(chunk.content)
-                        chunk_content = remove_tool_calls(chunk.content)
-                        full_response += chunk_content
-                        yield f"data: {json.dumps({'chunk': chunk_content, 'done': False})}\n\n"
+                    if hasattr(chunk, "content") and chunk.content:
+
+                        raw = chunk.content
+
+                        # Filter out tool calls or execution traces
+                        if (
+                            "execute_database_query(" in raw
+                            or "completed in" in raw
+                            or '"tool_calls"' in raw
+                            or "AgentAction" in raw
+                        ):
+                            continue  # skip this part completely
+
+                        # Append only clean assistant text
+                        full_response += raw
+
+                        yield f"data: {json.dumps({'chunk': raw, 'done': False})}\n\n"
+
+                # for chunk in response:
+                #     if hasattr(chunk, 'content') and chunk.content:
+                        
+                #         full_response += chunk.content
+                #         yield f"data: {json.dumps({'chunk': chunk.content, 'done': False})}\n\n"
                 
                 # Save agent response
                 if full_response:
@@ -2193,6 +2215,7 @@ def get_kitchen_current_assignments(kitchen_id):
                 ka.assigned_at,
                 ka.completed_at,
                 oi.id as order_item_id,
+                oi.food_item_id,
                 oi.food_name,
                 oi.category_name,
                 oi.quantity,
@@ -2205,7 +2228,7 @@ def get_kitchen_current_assignments(kitchen_id):
                 o.status as order_status,
                 o.created_at as order_created_at
             FROM kitchen_assignments ka
-            INNER JOIN order_items oi ON ka.item_id = oi.id
+            INNER JOIN order_items oi ON ka.food_item_id = oi.id
             INNER JOIN orders o ON ka.order_id = o.id
             WHERE ka.kitchen_id = %s
             AND ka.completed = 0
@@ -2228,6 +2251,9 @@ def get_kitchen_current_assignments(kitchen_id):
         })
         
     except Exception as e:
+        print(f"❌ Error in get_kitchen_current_assignments: {e}")
+        import traceback
+        traceback.print_exc()
         conn.close()
         return jsonify({
             'success': False,
@@ -2624,6 +2650,8 @@ if __name__ == '__main__':
                 kitchen_id VARCHAR(255) NOT NULL,
                 order_id VARCHAR(255) NOT NULL,
                 status VARCHAR(255) DEFAULT 'pending',
+                started TINYINT DEFAULT 0,
+                completed TINYINT DEFAULT 0,
                 assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at TIMESTAMP,
                 FOREIGN KEY (item_id) REFERENCES order_items(id),
@@ -2632,6 +2660,22 @@ if __name__ == '__main__':
                 UNIQUE(item_id, kitchen_id, order_id)
             )
         ''')
+        
+        # Add started and completed columns if they don't exist
+        cursor = conn.cursor()
+        try:
+            cursor.execute("ALTER TABLE kitchen_assignments ADD COLUMN started TINYINT DEFAULT 0")
+            print("✓ Added 'started' column to kitchen_assignments")
+        except Exception as e:
+            if "Duplicate column" not in str(e):
+                print(f"Note: started column: {e}")
+        
+        try:
+            cursor.execute("ALTER TABLE kitchen_assignments ADD COLUMN completed TINYINT DEFAULT 0")
+            print("✓ Added 'completed' column to kitchen_assignments")
+        except Exception as e:
+            if "Duplicate column" not in str(e):
+                print(f"Note: completed column: {e}")
         
         conn.commit()
         conn.close()
