@@ -1,0 +1,41 @@
+<!-- Menu Categories Section -->
+<div class="page-section" id="categories">
+    <div class="section-header">
+        <h2>Menu Categories</h2>
+        <p>Manage your restaurant menu categories</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openCategoryModal()">
+            + Add Category
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="categories-table">
+                <thead>
+                    <tr>
+                        <th>Category Name</th>
+                        <th>Description</th>
+                        <th>Items Count</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="categories-tbody">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <p>No categories yet. Add your first category!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/categories.js') }}"></script>

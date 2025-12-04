@@ -1,0 +1,42 @@
+<!-- Orders Section -->
+<div class="page-section" id="orders">
+    <div class="section-header">
+        <h2>Orders Management</h2>
+        <p>View and manage all customer orders</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openOrderModal()">
+            + New Order
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="orders-table">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Table</th>
+                        <th>Order Type</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Amount ($)</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbody">
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <p>No orders yet. Create your first order!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

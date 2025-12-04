@@ -3,25 +3,29 @@ Order Monitor - Background task that runs every 5 seconds
 Counts orders from the current day and tracks kitchen metrics
 """
 
-import sqlite3
+import pymysql
+import pymysql.cursors
 import threading
 import time
 from datetime import datetime, date
 from typing import Dict, Optional
 from .communications import EventBus
+import sys
+import os
 
-DB_PATH = "my_db.db"
+# Add parent directory to path to import constants
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from constants import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
 
 class OrderMonitor:
     """Background monitor that tracks today's orders"""
     
-    def __init__(self, db_path: str = DB_PATH):
+    def __init__(self):
         """Initialize the order monitor"""
-        self.db_path = db_path
         self.running = False
         self.thread = None
-        self.poll_interval = 5  # Run every 5 seconds
+        self.poll_interval = 30  # Run every 30 seconds
         
         # Store current metrics
         self.current_metrics = {
@@ -36,11 +40,19 @@ class OrderMonitor:
             'total_amount_today': 0.0
         }
     
-    def _get_db_connection(self) -> sqlite3.Connection:
+    def _get_db_connection(self):
         """Get database connection"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
+            conn = pymysql.connect(
+                host=MYSQL_HOST,
+                port=MYSQL_PORT,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DATABASE,
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=False,
+                ssl={'ssl': False}
+            )
             return conn
         except Exception as e:
             print(f"Error connecting to database: {e}")
@@ -65,14 +77,14 @@ class OrderMonitor:
             return 0
         
         try:
-            start_date, end_date = self._get_today_date_range()
             cursor = conn.cursor()
+            today = date.today().isoformat()
             
             cursor.execute("""
                 SELECT COUNT(*) as count 
                 FROM orders 
-                WHERE DATE(created_at) = DATE('now')
-            """)
+                WHERE DATE(created_at) = %s
+            """, (today,))
             
             result = cursor.fetchone()
             count = result['count'] if result else 0
@@ -97,13 +109,14 @@ class OrderMonitor:
         
         try:
             cursor = conn.cursor()
+            today = date.today().isoformat()
             
             cursor.execute("""
                 SELECT status, COUNT(*) as count 
                 FROM orders 
-                WHERE DATE(created_at) = DATE('now')
+                WHERE DATE(created_at) = %s
                 GROUP BY status
-            """)
+            """, (today,))
             
             results = cursor.fetchall()
             status_breakdown = {row['status']: row['count'] for row in results}
@@ -128,12 +141,13 @@ class OrderMonitor:
         
         try:
             cursor = conn.cursor()
+            today = date.today().isoformat()
             
             cursor.execute("""
                 SELECT COALESCE(SUM(total_amount), 0) as total 
                 FROM orders 
-                WHERE DATE(created_at) = DATE('now') AND total_amount > 0
-            """)
+                WHERE DATE(created_at) = %s AND total_amount > 0
+            """, (today,))
             
             result = cursor.fetchone()
             total = result['total'] if result else 0.0
@@ -158,12 +172,13 @@ class OrderMonitor:
         
         try:
             cursor = conn.cursor()
+            today = date.today().isoformat()
             
             cursor.execute("""
                 SELECT COALESCE(SUM(items_count), 0) as total 
                 FROM orders 
-                WHERE DATE(created_at) = DATE('now')
-            """)
+                WHERE DATE(created_at) = %s
+            """, (today,))
             
             result = cursor.fetchone()
             count = result['total'] if result else 0
@@ -197,17 +212,28 @@ class OrderMonitor:
                 'timestamp': datetime.now().isoformat(),
                 'status_breakdown': status_breakdown
             }
-            print("✓ Metrics updated")
+            print(f"✓ Metrics updated - Pending: {self.current_metrics['pending_orders']}")
             
             # Trigger event asynchronously if there are pending orders
             if self.current_metrics["pending_orders"] > 0:
-                print("🔔 There are pending orders!")
-                # Run EventBus call in a separate thread to avoid blocking
-                event_thread = threading.Thread(
-                    target=lambda: EventBus("new_order_recieved").process_event(),
-                    daemon=True
-                )
-                event_thread.start()
+                print(f"🔔 There are {self.current_metrics['pending_orders']} pending orders!")
+                try:
+                    print("📤 Creating EventBus thread...")
+                    # Run EventBus call in a separate thread to avoid blocking
+                    event_thread = threading.Thread(
+                        target=lambda: EventBus("new_order_recieved").process_event(),
+                        daemon=True,
+                        name="EventBusThread"
+                    )
+                    print("🚀 Starting EventBus thread...")
+                    event_thread.start()
+                    print(f"✓ Event thread started (is_alive: {event_thread.is_alive()})")
+                except Exception as e:
+                    print(f"⚠️  Error starting event thread: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("ℹ️  No pending orders - skipping event trigger")
 
             return self.current_metrics
         
@@ -226,11 +252,11 @@ class OrderMonitor:
 
                 
                 # Print current status
-                print(f"\n📊 [{datetime.now().strftime('%H:%M:%S')}] Daily Order Count")
-                print(f"   Total Orders: {metrics['total_orders_today']}")
-                print(f"   Pending: {metrics['pending_orders']} | Preparing: {metrics['preparing_orders']} | Ready: {metrics['ready_orders']} | Completed: {metrics['completed_orders']}")
-                print(f"   Total Items: {metrics['total_items_today']}")
-                print(f"   Revenue: ${metrics['total_amount_today']:.2f}")
+                # print(f"\n📊 [{datetime.now().strftime('%H:%M:%S')}] Daily Order Count")
+                # print(f"   Total Orders: {metrics['total_orders_today']}")
+                # print(f"   Pending: {metrics['pending_orders']} | Preparing: {metrics['preparing_orders']} | Ready: {metrics['ready_orders']} | Completed: {metrics['completed_orders']}")
+                # print(f"   Total Items: {metrics['total_items_today']}")
+                # print(f"   Revenue: ${metrics['total_amount_today']:.2f}")
                 
                 # Wait before next poll
                 time.sleep(self.poll_interval)
@@ -244,6 +270,10 @@ class OrderMonitor:
         if self.running:
             print("⚠️  Order Monitor already running")
             return
+        
+        # Immediately update metrics before starting the loop
+        print("🔄 Running initial metrics update...")
+        self.update_metrics()
         
         self.running = True
         self.thread = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -332,23 +362,23 @@ def get_today_summary() -> Dict:
     return monitor.get_today_summary()
 
 
-if __name__ == "__main__":
-    # Test the monitor
-    print("Testing Order Monitor...\n")
+# if __name__ == "__main__":
+#     # Test the monitor
+#     print("Testing Order Monitor...\n")
     
-    monitor = OrderMonitor()
+#     monitor = OrderMonitor()
     
-    # Get initial count
-    print(f"Initial order count today: {monitor.count_orders_today()}")
+#     # Get initial count
+#     print(f"Initial order count today: {monitor.count_orders_today()}")
     
-    # Start monitor
-    monitor.start()
+#     # Start monitor
+#     monitor.start()
     
-    try:
-        # Let it run for 20 seconds
-        time.sleep(20)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        monitor.stop()
-        print("\n✓ Monitor test complete")
+#     try:
+#         # Let it run for 20 seconds
+#         time.sleep(20)
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         monitor.stop()
+#         print("\n✓ Monitor test complete")

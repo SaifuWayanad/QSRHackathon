@@ -1,0 +1,41 @@
+<!-- Tables Section -->
+<div class="page-section" id="tables">
+    <div class="section-header">
+        <h2>Tables Management</h2>
+        <p>Manage all dining tables and their assignments</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openTableModal()">
+            + Add Table
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="tables-table">
+                <thead>
+                    <tr>
+                        <th>Table #</th>
+                        <th>Area</th>
+                        <th>Capacity</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tables-tbody">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <p>No tables yet. Add your first table!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/tables.js') }}"></script>

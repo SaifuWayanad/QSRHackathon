@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import sqlite3
+import pymysql
+import pymysql.cursors
 import json
 import uuid
 from datetime import datetime
 import os
+from constants import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
 # Import stream database integration
 try:
@@ -32,14 +34,51 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
-# SQLite database setup
-DB_PATH = "my_db.db"
+# Wrapper class to make PyMySQL behave like SQLAlchemy
+class ConnectionWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+        self._cursor = None
+    
+    def execute(self, query, params=None):
+        """Execute a query and return a cursor-like object"""
+        cursor = self._conn.cursor()
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        return cursor
+    
+    def cursor(self):
+        """Get a cursor from the connection"""
+        return self._conn.cursor()
+    
+    def commit(self):
+        """Commit the transaction"""
+        self._conn.commit()
+    
+    def rollback(self):
+        """Rollback the transaction"""
+        self._conn.rollback()
+    
+    def close(self):
+        """Close the connection"""
+        self._conn.close()
 
+# MySQL database setup
 def get_db_connection():
     """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn = pymysql.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DATABASE,
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False,
+        ssl={'ssl': False}
+    )
+    return ConnectionWrapper(conn)
 
 def init_db():
     """Initialize database with all tables"""
@@ -49,50 +88,50 @@ def init_db():
     # Create tables
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS areas (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
-            tables_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            tables_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
-            items_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            items_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kitchens (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            location TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            location VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
-            items_count INTEGER DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'active',
+            items_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS food_items (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            category_id TEXT NOT NULL,
-            category_name TEXT,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT,
-            price REAL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            category_id VARCHAR(255) NOT NULL,
+            category_name VARCHAR(255),
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255),
+            price DECIMAL(10, 2),
             description TEXT,
             specifications TEXT,
-            status TEXT DEFAULT 'available',
+            status VARCHAR(255) DEFAULT 'available',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (category_id) REFERENCES categories(id),
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -101,12 +140,12 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tables (
-            id TEXT PRIMARY KEY,
-            number INTEGER NOT NULL,
-            area_id TEXT NOT NULL,
-            area_name TEXT,
-            capacity INTEGER,
-            status TEXT DEFAULT 'available',
+            id VARCHAR(255) PRIMARY KEY,
+            number INT NOT NULL,
+            area_id VARCHAR(255) NOT NULL,
+            area_name VARCHAR(255),
+            capacity INT,
+            status VARCHAR(255) DEFAULT 'available',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (area_id) REFERENCES areas(id)
         )
@@ -114,29 +153,29 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS order_types (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
-            id TEXT PRIMARY KEY,
-            order_number TEXT UNIQUE,
-            table_id TEXT,
-            table_number TEXT,
-            order_type_id TEXT,
-            order_type_name TEXT,
-            customer_name TEXT,
-            items_count INTEGER DEFAULT 0,
-            total_amount REAL DEFAULT 0,
-            status TEXT DEFAULT 'pending',
+            id VARCHAR(255) PRIMARY KEY,
+            order_number VARCHAR(255) UNIQUE,
+            table_id VARCHAR(255),
+            table_number VARCHAR(255),
+            order_type_id VARCHAR(255),
+            order_type_name VARCHAR(255),
+            customer_name VARCHAR(255),
+            items_count INT DEFAULT 0,
+            total_amount DECIMAL(10, 2) DEFAULT 0,
+            status VARCHAR(255) DEFAULT 'pending',
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (table_id) REFERENCES tables(id),
             FOREIGN KEY (order_type_id) REFERENCES order_types(id)
         )
@@ -144,13 +183,13 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS order_items (
-            id TEXT PRIMARY KEY,
-            order_id TEXT NOT NULL,
-            food_item_id TEXT NOT NULL,
-            food_name TEXT,
-            category_name TEXT,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
+            id VARCHAR(255) PRIMARY KEY,
+            order_id VARCHAR(255) NOT NULL,
+            food_item_id VARCHAR(255) NOT NULL,
+            food_name VARCHAR(255),
+            category_name VARCHAR(255),
+            quantity INT NOT NULL,
+            price DECIMAL(10, 2) NOT NULL,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (order_id) REFERENCES orders(id),
@@ -160,13 +199,13 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_production (
-            id TEXT PRIMARY KEY,
-            food_id TEXT NOT NULL,
-            food_name TEXT,
-            category_name TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            food_id VARCHAR(255) NOT NULL,
+            food_name VARCHAR(255),
+            category_name VARCHAR(255),
             date DATE NOT NULL,
-            planned_quantity INTEGER,
-            produced INTEGER DEFAULT 0,
+            planned_quantity INT,
+            produced INT DEFAULT 0,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (food_id) REFERENCES food_items(id)
@@ -175,13 +214,13 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS appliances (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL,
-            model TEXT,
-            serial_number TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            type VARCHAR(255) NOT NULL,
+            model VARCHAR(255),
+            serial_number VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             purchase_date DATE,
             last_maintenance DATE,
             notes TEXT,
@@ -191,12 +230,12 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kitchen_appliances (
-            id TEXT PRIMARY KEY,
-            kitchen_id TEXT NOT NULL,
-            appliance_id TEXT NOT NULL,
-            quantity INTEGER DEFAULT 1,
-            location TEXT,
-            status TEXT DEFAULT 'active',
+            id VARCHAR(255) PRIMARY KEY,
+            kitchen_id VARCHAR(255) NOT NULL,
+            appliance_id VARCHAR(255) NOT NULL,
+            quantity INT DEFAULT 1,
+            location VARCHAR(255),
+            status VARCHAR(255) DEFAULT 'active',
             assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
             FOREIGN KEY (appliance_id) REFERENCES appliances(id),
@@ -206,20 +245,20 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS iot_devices (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            device_type TEXT NOT NULL,
-            device_id TEXT UNIQUE,
-            location TEXT,
-            kitchen_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            device_type VARCHAR(255) NOT NULL,
+            device_id VARCHAR(255) UNIQUE,
+            location VARCHAR(255),
+            kitchen_id VARCHAR(255),
             description TEXT,
-            status TEXT DEFAULT 'active',
-            battery_level INTEGER,
-            signal_strength INTEGER,
-            last_sync TIMESTAMP,
-            ip_address TEXT,
-            mac_address TEXT,
-            firmware_version TEXT,
+            status VARCHAR(255) DEFAULT 'active',
+            battery_level INT,
+            signal_strength INT,
+            last_sync TIMESTAMP NULL,
+            ip_address VARCHAR(50),
+            mac_address VARCHAR(50),
+            firmware_version VARCHAR(100),
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -228,23 +267,23 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            phone TEXT,
-            position TEXT NOT NULL,
-            department TEXT,
-            kitchen_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE,
+            phone VARCHAR(50),
+            position VARCHAR(255) NOT NULL,
+            department VARCHAR(100),
+            kitchen_id VARCHAR(255),
             hire_date DATE,
             date_of_birth DATE,
             address TEXT,
-            city TEXT,
-            state TEXT,
-            postal_code TEXT,
+            city VARCHAR(100),
+            state VARCHAR(100),
+            postal_code VARCHAR(20),
             emergency_contact_name TEXT,
             emergency_contact_phone TEXT,
-            status TEXT DEFAULT 'active',
-            salary_type TEXT,
+            status VARCHAR(255) DEFAULT 'active',
+            salary_type VARCHAR(50),
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id)
@@ -253,22 +292,22 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff_kitchen_requests (
-            id TEXT PRIMARY KEY,
-            staff_id TEXT NOT NULL,
-            staff_name TEXT,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT,
-            position TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            staff_id VARCHAR(255) NOT NULL,
+            staff_name VARCHAR(255),
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255),
+            position VARCHAR(100),
             request_reason TEXT,
             requested_start_date DATE,
-            status TEXT DEFAULT 'pending',
-            approval_status TEXT DEFAULT 'pending',
-            approved_by TEXT,
+            status VARCHAR(255) DEFAULT 'pending',
+            approval_status VARCHAR(255) DEFAULT 'pending',
+            approved_by VARCHAR(255),
             approval_notes TEXT,
-            approval_date TIMESTAMP,
+            approval_date TIMESTAMP NULL,
             rejection_reason TEXT,
             requested_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (staff_id) REFERENCES staff(id),
             FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
             UNIQUE(staff_id, kitchen_id)
@@ -277,16 +316,16 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff_kitchen_assignments (
-            id TEXT PRIMARY KEY,
-            staff_id TEXT NOT NULL,
-            staff_name TEXT,
-            kitchen_id TEXT NOT NULL,
-            kitchen_name TEXT,
-            position TEXT,
-            request_id TEXT,
+            id VARCHAR(255) PRIMARY KEY,
+            staff_id VARCHAR(255) NOT NULL,
+            staff_name VARCHAR(255),
+            kitchen_id VARCHAR(255) NOT NULL,
+            kitchen_name VARCHAR(255),
+            position VARCHAR(100),
+            request_id VARCHAR(255),
             assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             end_date DATE,
-            status TEXT DEFAULT 'active',
+            status VARCHAR(255) DEFAULT 'active',
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (staff_id) REFERENCES staff(id),
@@ -295,6 +334,8 @@ def init_db():
             UNIQUE(staff_id, kitchen_id)
         )
     ''')
+    
+    # Note: food_kitchen_mapping table created manually in MariaDB
     
     conn.commit()
     conn.close()
@@ -436,7 +477,7 @@ def categories():
         category_id = str(uuid.uuid4())
         
         conn.execute(
-            'INSERT INTO categories (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO categories (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (category_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
         )
         conn.commit()
@@ -460,7 +501,7 @@ def categories():
 @app.route('/api/categories/<category_id>', methods=['DELETE'])
 def delete_category(category_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM categories WHERE id = ?', (category_id,))
+    conn.execute('DELETE FROM categories WHERE id = %s', (category_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -476,7 +517,7 @@ def kitchens():
         kitchen_id = str(uuid.uuid4())
         
         conn.execute(
-            'INSERT INTO kitchens (id, name, location, description, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO kitchens (id, name, location, description, status) VALUES (%s, %s, %s, %s, %s)',
             (kitchen_id, data.get('name'), data.get('location', ''), data.get('description', ''), data.get('status', 'active'))
         )
         conn.commit()
@@ -501,7 +542,7 @@ def kitchens():
 @app.route('/api/kitchens/<kitchen_id>', methods=['DELETE'])
 def delete_kitchen(kitchen_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM kitchens WHERE id = ?', (kitchen_id,))
+    conn.execute('DELETE FROM kitchens WHERE id = %s', (kitchen_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -516,18 +557,19 @@ def food_items():
         data = request.get_json()
         food_id = str(uuid.uuid4())
         category_id = data.get('category_id')
-        kitchen_id = data.get('kitchen_id')
+        kitchen_ids = data.get('kitchen_ids', [])
         
-        if not kitchen_id:
+        if not kitchen_ids or len(kitchen_ids) == 0:
             conn.close()
-            return jsonify({'error': 'Kitchen assignment is mandatory!', 'success': False}), 400
+            return jsonify({'error': 'At least one kitchen assignment is required!', 'success': False}), 400
         
         # Get category name
-        cat_row = conn.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
+        cat_row = conn.execute('SELECT name FROM categories WHERE id = %s', (category_id,)).fetchone()
         category_name = cat_row['name'] if cat_row else 'Unknown'
         
-        # Get kitchen name
-        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (kitchen_id,)).fetchone()
+        # For backward compatibility, store primary kitchen in food_items
+        primary_kitchen_id = kitchen_ids[0]
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = %s', (primary_kitchen_id,)).fetchone()
         if not kitchen_row:
             conn.close()
             return jsonify({'error': 'Kitchen not found!', 'success': False}), 404
@@ -538,17 +580,25 @@ def food_items():
         conn.execute(
             '''INSERT INTO food_items (id, name, category_id, category_name, kitchen_id, kitchen_name, 
                price, description, specifications, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (food_id, data.get('name'), category_id, category_name, kitchen_id, kitchen_name,
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (food_id, data.get('name'), category_id, category_name, primary_kitchen_id, kitchen_name,
              data.get('price'), data.get('description', ''), data.get('specifications', ''),
              data.get('status', 'available'))
         )
         
-        # Update category items_count
-        conn.execute('UPDATE categories SET items_count = items_count + 1 WHERE id = ?', (category_id,))
+        # Insert mappings for all selected kitchens
+        for kitchen_id in kitchen_ids:
+            mapping_id = str(uuid.uuid4())
+            conn.execute(
+                '''INSERT INTO food_kitchen_mapping (id, food_id, kitchen_id)
+                   VALUES (%s, %s, %s)''',
+                (mapping_id, food_id, kitchen_id)
+            )
+            # Update kitchen items_count
+            conn.execute('UPDATE kitchens SET items_count = items_count + 1 WHERE id = %s', (kitchen_id,))
         
-        # Update kitchen items_count
-        conn.execute('UPDATE kitchens SET items_count = items_count + 1 WHERE id = ?', (kitchen_id,))
+        # Update category items_count
+        conn.execute('UPDATE categories SET items_count = items_count + 1 WHERE id = %s', (category_id,))
         
         conn.commit()
         conn.close()
@@ -558,8 +608,9 @@ def food_items():
             'name': data.get('name'),
             'category_id': category_id,
             'category_name': category_name,
-            'kitchen_id': kitchen_id,
+            'kitchen_id': primary_kitchen_id,
             'kitchen_name': kitchen_name,
+            'kitchen_ids': kitchen_ids,
             'price': data.get('price'),
             'description': data.get('description', ''),
             'specifications': data.get('specifications', ''),
@@ -567,9 +618,23 @@ def food_items():
         }
         return jsonify({'success': True, 'food_item': food_item})
     
-    # GET all food items
+    # GET all food items with their kitchen mappings
     cursor = conn.execute('SELECT * FROM food_items')
-    food_items_list = [dict(row) for row in cursor.fetchall()]
+    food_items_list = []
+    
+    for row in cursor.fetchall():
+        item = dict(row)
+        # Get all kitchens for this food item
+        kitchen_cursor = conn.execute('''
+            SELECT k.id, k.name, k.icon 
+            FROM kitchens k
+            INNER JOIN food_kitchen_mapping fkm ON k.id = fkm.kitchen_id
+            WHERE fkm.food_id = %s
+        ''', (item['id'],))
+        
+        item['kitchens'] = [dict(k) for k in kitchen_cursor.fetchall()]
+        food_items_list.append(item)
+    
     conn.close()
     return jsonify({'food_items': food_items_list})
 
@@ -577,17 +642,30 @@ def food_items():
 def delete_food_item(food_id):
     conn = get_db_connection()
     
-    # Get food item details
-    food_row = conn.execute('SELECT * FROM food_items WHERE id = ?', (food_id,)).fetchone()
+    # Get food item details and all associated kitchens
+    food_row = conn.execute('SELECT * FROM food_items WHERE id = %s', (food_id,)).fetchone()
     
     if food_row:
         category_id = food_row['category_id']
-        kitchen_id = food_row['kitchen_id']
         
-        conn.execute('UPDATE categories SET items_count = MAX(0, items_count - 1) WHERE id = ?', (category_id,))
-        conn.execute('UPDATE kitchens SET items_count = MAX(0, items_count - 1) WHERE id = ?', (kitchen_id,))
+        # Get all kitchens associated with this food item
+        kitchen_mappings = conn.execute(
+            'SELECT kitchen_id FROM food_kitchen_mapping WHERE food_id = %s',
+            (food_id,)
+        ).fetchall()
+        
+        # Update category count
+        conn.execute('UPDATE categories SET items_count = MAX(0, items_count - 1) WHERE id = %s', (category_id,))
+        
+        # Update each kitchen's count
+        for mapping in kitchen_mappings:
+            conn.execute('UPDATE kitchens SET items_count = MAX(0, items_count - 1) WHERE id = %s', (mapping['kitchen_id'],))
+        
+        # Delete mappings (will cascade if ON DELETE CASCADE is set)
+        conn.execute('DELETE FROM food_kitchen_mapping WHERE food_id = %s', (food_id,))
     
-    conn.execute('DELETE FROM food_items WHERE id = ?', (food_id,))
+    # Delete the food item
+    conn.execute('DELETE FROM food_items WHERE id = %s', (food_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -605,7 +683,7 @@ def daily_production():
         
         conn.execute(
             '''INSERT INTO daily_production (id, food_id, food_name, category_name, date, planned_quantity, produced, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
             (production_id, data.get('food_id'), data.get('food_name'), data.get('category_name'),
              date, data.get('planned_quantity'), data.get('produced', 0), data.get('notes', ''))
         )
@@ -629,7 +707,7 @@ def daily_production():
     if not date:
         date = datetime.now().strftime('%Y-%m-%d')
     
-    cursor = conn.execute('SELECT * FROM daily_production WHERE date = ?', (date,))
+    cursor = conn.execute('SELECT * FROM daily_production WHERE date = %s', (date,))
     production_items = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
@@ -641,16 +719,16 @@ def update_delete_production(production_id):
     
     if request.method == 'PUT':
         data = request.get_json()
-        prod_row = conn.execute('SELECT * FROM daily_production WHERE id = ?', (production_id,)).fetchone()
+        prod_row = conn.execute('SELECT * FROM daily_production WHERE id = %s', (production_id,)).fetchone()
         
         if prod_row:
             conn.execute(
-                'UPDATE daily_production SET produced = ? WHERE id = ?',
+                'UPDATE daily_production SET produced = %s WHERE id = %s',
                 (data.get('produced', prod_row['produced']), production_id)
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM daily_production WHERE id = ?', (production_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM daily_production WHERE id = %s', (production_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'production_item': dict(updated)})
         
@@ -658,7 +736,7 @@ def update_delete_production(production_id):
         return jsonify({'error': 'Production item not found'}), 404
     
     # DELETE
-    conn.execute('DELETE FROM daily_production WHERE id = ?', (production_id,))
+    conn.execute('DELETE FROM daily_production WHERE id = %s', (production_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -674,7 +752,7 @@ def areas():
         area_id = str(uuid.uuid4())
         
         conn.execute(
-            'INSERT INTO areas (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO areas (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (area_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
         )
         conn.commit()
@@ -698,7 +776,7 @@ def areas():
 @app.route('/api/areas/<area_id>', methods=['DELETE'])
 def delete_area(area_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
+    conn.execute('DELETE FROM areas WHERE id = %s', (area_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -715,15 +793,15 @@ def tables():
         area_id = data.get('area_id')
         
         # Get area name and update table count
-        area_row = conn.execute('SELECT name FROM areas WHERE id = ?', (area_id,)).fetchone()
+        area_row = conn.execute('SELECT name FROM areas WHERE id = %s', (area_id,)).fetchone()
         area_name = area_row['name'] if area_row else ''
         
         conn.execute(
-            'INSERT INTO tables (id, number, area_id, area_name, capacity, status) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO tables (id, number, area_id, area_name, capacity, status) VALUES (%s, %s, %s, %s, %s, %s)',
             (table_id, data.get('number'), area_id, area_name, data.get('capacity'), data.get('status', 'available'))
         )
         
-        conn.execute('UPDATE areas SET tables_count = tables_count + 1 WHERE id = ?', (area_id,))
+        conn.execute('UPDATE areas SET tables_count = tables_count + 1 WHERE id = %s', (area_id,))
         conn.commit()
         
         table = {
@@ -748,13 +826,13 @@ def delete_table(table_id):
     conn = get_db_connection()
     
     # Get table details
-    table_row = conn.execute('SELECT area_id FROM tables WHERE id = ?', (table_id,)).fetchone()
+    table_row = conn.execute('SELECT area_id FROM tables WHERE id = %s', (table_id,)).fetchone()
     
     if table_row:
         area_id = table_row['area_id']
-        conn.execute('UPDATE areas SET tables_count = MAX(0, tables_count - 1) WHERE id = ?', (area_id,))
+        conn.execute('UPDATE areas SET tables_count = MAX(0, tables_count - 1) WHERE id = %s', (area_id,))
     
-    conn.execute('DELETE FROM tables WHERE id = ?', (table_id,))
+    conn.execute('DELETE FROM tables WHERE id = %s', (table_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -770,7 +848,7 @@ def order_types():
         order_type_id = str(uuid.uuid4())
         
         conn.execute(
-            'INSERT INTO order_types (id, name, description, status) VALUES (?, ?, ?, ?)',
+            'INSERT INTO order_types (id, name, description, status) VALUES (%s, %s, %s, %s)',
             (order_type_id, data.get('name'), data.get('description', ''), data.get('status', 'active'))
         )
         conn.commit()
@@ -793,7 +871,7 @@ def order_types():
 @app.route('/api/order-types/<order_type_id>', methods=['DELETE'])
 def delete_order_type(order_type_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM order_types WHERE id = ?', (order_type_id,))
+    conn.execute('DELETE FROM order_types WHERE id = %s', (order_type_id,))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -812,7 +890,7 @@ def orders():
         conn.execute(
             '''INSERT INTO orders (id, order_number, table_id, table_number, order_type_id, order_type_name,
                customer_name, items_count, total_amount, status, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (order_id, data.get('order_number'), data.get('table_id'), data.get('table_number', ''),
              data.get('order_type_id'), data.get('order_type_name', ''), data.get('customer_name', ''),
              data.get('items_count', 0), data.get('total_amount', 0), data.get('status', 'pending'),
@@ -826,12 +904,12 @@ def orders():
             try:
                 conn.execute(
                     '''INSERT INTO order_items (id, order_id, food_item_id, food_name, category_name, quantity, price, notes, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                     (item_id, order_id, item.get('food_item_id', ''), item.get('food_name', ''),
                      item.get('category_name', ''), item.get('quantity', 1), item.get('price', 0),
                      item.get('notes', ''), now)
                 )
-            except sqlite3.IntegrityError as e:
+            except pymysql.IntegrityError as e:
                 # Handle duplicate item (same food_item in same order)
                 print(f"Note: Duplicate item in order - {e}")
                 conn.rollback()
@@ -853,7 +931,7 @@ def orders():
             'notes': data.get('notes', ''),
             'created_at': now,
             'updated_at': now,
-            'items': [dict(i) if isinstance(i, sqlite3.Row) else i for i in data.get('items', [])]
+            'items': data.get('items', [])
         }
         
         # Push order to stream database for Kitchen Agent processing
@@ -874,7 +952,7 @@ def order_detail(order_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        conn.execute('DELETE FROM orders WHERE id = ?', (order_id,))
+        conn.execute('DELETE FROM orders WHERE id = %s', (order_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
@@ -883,13 +961,13 @@ def order_detail(order_id):
         data = request.get_json()
         now = datetime.now().isoformat()
         
-        order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+        order_row = conn.execute('SELECT * FROM orders WHERE id = %s', (order_id,)).fetchone()
         if order_row:
             conn.execute(
-                '''UPDATE orders SET order_number = ?, table_id = ?, table_number = ?, 
-                   order_type_id = ?, order_type_name = ?, customer_name = ?, items_count = ?, 
-                   total_amount = ?, status = ?, notes = ?, updated_at = ?
-                   WHERE id = ?''',
+                '''UPDATE orders SET order_number = %s, table_id = %s, table_number = %s, 
+                   order_type_id = %s, order_type_name = %s, customer_name = %s, items_count = %s, 
+                   total_amount = %s, status = %s, notes = %s, updated_at = %s
+                   WHERE id = %s''',
                 (data.get('order_number', order_row['order_number']),
                  data.get('table_id', order_row['table_id']),
                  data.get('table_number', order_row['table_number']),
@@ -904,10 +982,10 @@ def order_detail(order_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM orders WHERE id = %s', (order_id,)).fetchone()
             updated_dict = dict(updated)
             # Fetch order items
-            items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+            items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall()
             updated_dict['items'] = [dict(row) for row in items_rows]
             conn.close()
             return jsonify({'success': True, 'order': updated_dict})
@@ -916,11 +994,11 @@ def order_detail(order_id):
         return jsonify({'error': 'Order not found'}), 404
     
     # GET single order
-    order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+    order_row = conn.execute('SELECT * FROM orders WHERE id = %s', (order_id,)).fetchone()
     if order_row:
         order_dict = dict(order_row)
         # Fetch order items
-        items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+        items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall()
         order_dict['items'] = [dict(row) for row in items_rows]
         conn.close()
         return jsonify({'success': True, 'order': order_dict})
@@ -931,7 +1009,7 @@ def order_detail(order_id):
 @app.route('/api/orders/<order_id>/items', methods=['GET'])
 def order_items(order_id):
     conn = get_db_connection()
-    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall()
     conn.close()
     return jsonify({'items': [dict(row) for row in items_rows]})
 
@@ -965,10 +1043,30 @@ def get_today_orders_summary_api():
         summary = get_today_summary()
         return jsonify(summary)
     
-    return jsonify({
-        'success': False,
-        'error': 'Order monitor not available'
-    }), 500
+    # Fallback: Get summary directly from database
+    try:
+        conn = get_db_connection()
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        cursor = conn.execute(
+            "SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = %s",
+            (today,)
+        )
+        result = cursor.fetchone()
+        count = result['count'] if result else 0
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'count': count,
+            'date': today
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # Appliances API
@@ -982,7 +1080,7 @@ def appliances():
         
         conn.execute(
             '''INSERT INTO appliances (id, name, type, model, serial_number, description, status, purchase_date, last_maintenance, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (appliance_id, data.get('name'), data.get('type'), data.get('model', ''),
              data.get('serial_number', ''), data.get('description', ''), data.get('status', 'active'),
              data.get('purchase_date'), data.get('last_maintenance'), data.get('notes', ''))
@@ -1015,20 +1113,20 @@ def appliance_detail(appliance_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        conn.execute('DELETE FROM appliances WHERE id = ?', (appliance_id,))
+        conn.execute('DELETE FROM appliances WHERE id = %s', (appliance_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
     
     if request.method == 'PUT':
         data = request.get_json()
-        appliance_row = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+        appliance_row = conn.execute('SELECT * FROM appliances WHERE id = %s', (appliance_id,)).fetchone()
         
         if appliance_row:
             conn.execute(
-                '''UPDATE appliances SET name = ?, type = ?, model = ?, serial_number = ?, 
-                   description = ?, status = ?, purchase_date = ?, last_maintenance = ?, notes = ?
-                   WHERE id = ?''',
+                '''UPDATE appliances SET name = %s, type = %s, model = %s, serial_number = %s, 
+                   description = %s, status = %s, purchase_date = %s, last_maintenance = %s, notes = %s
+                   WHERE id = %s''',
                 (data.get('name', appliance_row['name']),
                  data.get('type', appliance_row['type']),
                  data.get('model', appliance_row['model']),
@@ -1042,7 +1140,7 @@ def appliance_detail(appliance_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM appliances WHERE id = %s', (appliance_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'appliance': dict(updated)})
         
@@ -1050,7 +1148,7 @@ def appliance_detail(appliance_id):
         return jsonify({'error': 'Appliance not found'}), 404
     
     # GET single appliance
-    appliance_row = conn.execute('SELECT * FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+    appliance_row = conn.execute('SELECT * FROM appliances WHERE id = %s', (appliance_id,)).fetchone()
     conn.close()
     
     if appliance_row:
@@ -1064,7 +1162,7 @@ def kitchen_appliances(kitchen_id):
     conn = get_db_connection()
     
     # Verify kitchen exists
-    kitchen_row = conn.execute('SELECT id FROM kitchens WHERE id = ?', (kitchen_id,)).fetchone()
+    kitchen_row = conn.execute('SELECT id FROM kitchens WHERE id = %s', (kitchen_id,)).fetchone()
     if not kitchen_row:
         conn.close()
         return jsonify({'error': 'Kitchen not found'}), 404
@@ -1076,14 +1174,14 @@ def kitchen_appliances(kitchen_id):
         location = data.get('location', '')
         
         # Verify appliance exists
-        appliance_row = conn.execute('SELECT name FROM appliances WHERE id = ?', (appliance_id,)).fetchone()
+        appliance_row = conn.execute('SELECT name FROM appliances WHERE id = %s', (appliance_id,)).fetchone()
         if not appliance_row:
             conn.close()
             return jsonify({'error': 'Appliance not found'}), 404
         
         # Check if already exists
         existing = conn.execute(
-            'SELECT id FROM kitchen_appliances WHERE kitchen_id = ? AND appliance_id = ?',
+            'SELECT id FROM kitchen_appliances WHERE kitchen_id = %s AND appliance_id = %s',
             (kitchen_id, appliance_id)
         ).fetchone()
         
@@ -1094,7 +1192,7 @@ def kitchen_appliances(kitchen_id):
         mapping_id = str(uuid.uuid4())
         conn.execute(
             '''INSERT INTO kitchen_appliances (id, kitchen_id, appliance_id, quantity, location, status)
-               VALUES (?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s)''',
             (mapping_id, kitchen_id, appliance_id, quantity, location, 'active')
         )
         conn.commit()
@@ -1117,7 +1215,7 @@ def kitchen_appliances(kitchen_id):
            ka.quantity, ka.location, ka.status, ka.assigned_date
            FROM kitchen_appliances ka
            JOIN appliances a ON ka.appliance_id = a.id
-           WHERE ka.kitchen_id = ?''',
+           WHERE ka.kitchen_id = %s''',
         (kitchen_id,)
     )
     mappings = [dict(row) for row in cursor.fetchall()]
@@ -1131,7 +1229,7 @@ def kitchen_appliance_detail(kitchen_id, mapping_id):
     if request.method == 'DELETE':
         # Verify mapping belongs to this kitchen
         mapping_row = conn.execute(
-            'SELECT id FROM kitchen_appliances WHERE id = ? AND kitchen_id = ?',
+            'SELECT id FROM kitchen_appliances WHERE id = %s AND kitchen_id = %s',
             (mapping_id, kitchen_id)
         ).fetchone()
         
@@ -1139,7 +1237,7 @@ def kitchen_appliance_detail(kitchen_id, mapping_id):
             conn.close()
             return jsonify({'error': 'Mapping not found'}), 404
         
-        conn.execute('DELETE FROM kitchen_appliances WHERE id = ?', (mapping_id,))
+        conn.execute('DELETE FROM kitchen_appliances WHERE id = %s', (mapping_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
@@ -1147,14 +1245,14 @@ def kitchen_appliance_detail(kitchen_id, mapping_id):
     if request.method == 'PUT':
         data = request.get_json()
         mapping_row = conn.execute(
-            'SELECT * FROM kitchen_appliances WHERE id = ? AND kitchen_id = ?',
+            'SELECT * FROM kitchen_appliances WHERE id = %s AND kitchen_id = %s',
             (mapping_id, kitchen_id)
         ).fetchone()
         
         if mapping_row:
             conn.execute(
-                '''UPDATE kitchen_appliances SET quantity = ?, location = ?, status = ?
-                   WHERE id = ?''',
+                '''UPDATE kitchen_appliances SET quantity = %s, location = %s, status = %s
+                   WHERE id = %s''',
                 (data.get('quantity', mapping_row['quantity']),
                  data.get('location', mapping_row['location']),
                  data.get('status', mapping_row['status']),
@@ -1167,7 +1265,7 @@ def kitchen_appliance_detail(kitchen_id, mapping_id):
                    ka.quantity, ka.location, ka.status, ka.assigned_date
                    FROM kitchen_appliances ka
                    JOIN appliances a ON ka.appliance_id = a.id
-                   WHERE ka.id = ?''',
+                   WHERE ka.id = %s''',
                 (mapping_id,)
             ).fetchone()
             conn.close()
@@ -1225,7 +1323,7 @@ def iot_devices():
         conn.execute(
             '''INSERT INTO iot_devices (id, name, device_type, device_id, location, kitchen_id, description, 
                status, battery_level, signal_strength, ip_address, mac_address, firmware_version, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (device_id, data.get('name'), data.get('device_type'), data.get('device_id', ''),
              data.get('location', ''), data.get('kitchen_id'), data.get('description', ''),
              data.get('status', 'active'), data.get('battery_level'), data.get('signal_strength'),
@@ -1257,21 +1355,21 @@ def iot_device_detail(device_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        conn.execute('DELETE FROM iot_devices WHERE id = ?', (device_id,))
+        conn.execute('DELETE FROM iot_devices WHERE id = %s', (device_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
     
     if request.method == 'PUT':
         data = request.get_json()
-        device_row = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+        device_row = conn.execute('SELECT * FROM iot_devices WHERE id = %s', (device_id,)).fetchone()
         
         if device_row:
             conn.execute(
-                '''UPDATE iot_devices SET name = ?, device_type = ?, device_id = ?, location = ?, 
-                   kitchen_id = ?, description = ?, status = ?, battery_level = ?, signal_strength = ?,
-                   ip_address = ?, mac_address = ?, firmware_version = ?, notes = ?, last_sync = ?
-                   WHERE id = ?''',
+                '''UPDATE iot_devices SET name = %s, device_type = %s, device_id = %s, location = %s, 
+                   kitchen_id = %s, description = %s, status = %s, battery_level = %s, signal_strength = %s,
+                   ip_address = %s, mac_address = %s, firmware_version = %s, notes = %s, last_sync = %s
+                   WHERE id = %s''',
                 (data.get('name', device_row['name']),
                  data.get('device_type', device_row['device_type']),
                  data.get('device_id', device_row['device_id']),
@@ -1290,7 +1388,7 @@ def iot_device_detail(device_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM iot_devices WHERE id = %s', (device_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'device': dict(updated)})
         
@@ -1298,7 +1396,7 @@ def iot_device_detail(device_id):
         return jsonify({'error': 'Device not found'}), 404
     
     # GET single device
-    device_row = conn.execute('SELECT * FROM iot_devices WHERE id = ?', (device_id,)).fetchone()
+    device_row = conn.execute('SELECT * FROM iot_devices WHERE id = %s', (device_id,)).fetchone()
     conn.close()
     
     if device_row:
@@ -1344,7 +1442,7 @@ def staff():
             '''INSERT INTO staff (id, name, email, phone, position, department, kitchen_id, 
                hire_date, date_of_birth, address, city, state, postal_code, 
                emergency_contact_name, emergency_contact_phone, status, salary_type, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (staff_id, data.get('name'), data.get('email'), data.get('phone'),
              data.get('position'), data.get('department'), data.get('kitchen_id'),
              data.get('hire_date'), data.get('date_of_birth'), data.get('address'),
@@ -1376,23 +1474,23 @@ def staff_detail(staff_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        conn.execute('DELETE FROM staff WHERE id = ?', (staff_id,))
+        conn.execute('DELETE FROM staff WHERE id = %s', (staff_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
     
     if request.method == 'PUT':
         data = request.get_json()
-        staff_row = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+        staff_row = conn.execute('SELECT * FROM staff WHERE id = %s', (staff_id,)).fetchone()
         
         if staff_row:
             conn.execute(
-                '''UPDATE staff SET name = ?, email = ?, phone = ?, position = ?, 
-                   department = ?, kitchen_id = ?, hire_date = ?, date_of_birth = ?, 
-                   address = ?, city = ?, state = ?, postal_code = ?, 
-                   emergency_contact_name = ?, emergency_contact_phone = ?, 
-                   status = ?, salary_type = ?, notes = ?
-                   WHERE id = ?''',
+                '''UPDATE staff SET name = %s, email = %s, phone = %s, position = %s, 
+                   department = %s, kitchen_id = %s, hire_date = %s, date_of_birth = %s, 
+                   address = %s, city = %s, state = %s, postal_code = %s, 
+                   emergency_contact_name = %s, emergency_contact_phone = %s, 
+                   status = %s, salary_type = %s, notes = %s
+                   WHERE id = %s''',
                 (data.get('name', staff_row['name']),
                  data.get('email', staff_row['email']),
                  data.get('phone', staff_row['phone']),
@@ -1414,7 +1512,7 @@ def staff_detail(staff_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM staff WHERE id = %s', (staff_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'staff': dict(updated)})
         
@@ -1422,7 +1520,7 @@ def staff_detail(staff_id):
         return jsonify({'error': 'Staff member not found'}), 404
     
     # GET single staff
-    staff_row = conn.execute('SELECT * FROM staff WHERE id = ?', (staff_id,)).fetchone()
+    staff_row = conn.execute('SELECT * FROM staff WHERE id = %s', (staff_id,)).fetchone()
     conn.close()
     
     if staff_row:
@@ -1482,8 +1580,8 @@ def staff_kitchen_requests():
         request_id = str(uuid.uuid4())
         
         # Get staff and kitchen details
-        staff_row = conn.execute('SELECT name FROM staff WHERE id = ?', (data.get('staff_id'),)).fetchone()
-        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (data.get('kitchen_id'),)).fetchone()
+        staff_row = conn.execute('SELECT name FROM staff WHERE id = %s', (data.get('staff_id'),)).fetchone()
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = %s', (data.get('kitchen_id'),)).fetchone()
         
         if not staff_row or not kitchen_row:
             conn.close()
@@ -1493,7 +1591,7 @@ def staff_kitchen_requests():
             '''INSERT INTO staff_kitchen_requests 
                (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_reason, 
                 requested_start_date, status, approval_status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (request_id, data.get('staff_id'), staff_row['name'], 
              data.get('kitchen_id'), kitchen_row['name'], data.get('position'),
              data.get('request_reason'), data.get('requested_start_date'), 
@@ -1526,20 +1624,20 @@ def staff_kitchen_request_detail(req_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        conn.execute('DELETE FROM staff_kitchen_requests WHERE id = ?', (req_id,))
+        conn.execute('DELETE FROM staff_kitchen_requests WHERE id = %s', (req_id,))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
     
     if request.method == 'PUT':
         data = request.get_json()
-        req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+        req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = %s', (req_id,)).fetchone()
         
         if req_row:
             conn.execute(
-                '''UPDATE staff_kitchen_requests SET position = ?, request_reason = ?, 
-                   requested_start_date = ?, updated_at = ?
-                   WHERE id = ?''',
+                '''UPDATE staff_kitchen_requests SET position = %s, request_reason = %s, 
+                   requested_start_date = %s, updated_at = %s
+                   WHERE id = %s''',
                 (data.get('position', req_row['position']),
                  data.get('request_reason', req_row['request_reason']),
                  data.get('requested_start_date', req_row['requested_start_date']),
@@ -1548,7 +1646,7 @@ def staff_kitchen_request_detail(req_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = %s', (req_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'request': dict(updated)})
         
@@ -1556,7 +1654,7 @@ def staff_kitchen_request_detail(req_id):
         return jsonify({'error': 'Request not found'}), 404
     
     # GET single request
-    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = %s', (req_id,)).fetchone()
     conn.close()
     
     if req_row:
@@ -1570,7 +1668,7 @@ def approve_staff_kitchen_request(req_id):
     conn = get_db_connection()
     data = request.get_json()
     
-    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = %s', (req_id,)).fetchone()
     
     if not req_row:
         conn.close()
@@ -1578,9 +1676,9 @@ def approve_staff_kitchen_request(req_id):
     
     # Update request status
     conn.execute(
-        '''UPDATE staff_kitchen_requests SET approval_status = ?, approved_by = ?, 
-           approval_notes = ?, approval_date = ?, updated_at = ?
-           WHERE id = ?''',
+        '''UPDATE staff_kitchen_requests SET approval_status = %s, approved_by = %s, 
+           approval_notes = %s, approval_date = %s, updated_at = %s
+           WHERE id = %s''',
         ('approved', data.get('approved_by', 'manager'), data.get('approval_notes', ''),
          datetime.now(), datetime.now(), req_id)
     )
@@ -1590,14 +1688,14 @@ def approve_staff_kitchen_request(req_id):
     conn.execute(
         '''INSERT INTO staff_kitchen_assignments 
            (id, staff_id, staff_name, kitchen_id, kitchen_name, position, request_id, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
         (assignment_id, req_row['staff_id'], req_row['staff_name'],
          req_row['kitchen_id'], req_row['kitchen_name'], req_row['position'],
          req_id, 'active')
     )
     
     # Update staff's kitchen_id
-    conn.execute('UPDATE staff SET kitchen_id = ? WHERE id = ?', 
+    conn.execute('UPDATE staff SET kitchen_id = %s WHERE id = %s', 
                 (req_row['kitchen_id'], req_row['staff_id']))
     
     conn.commit()
@@ -1612,7 +1710,7 @@ def reject_staff_kitchen_request(req_id):
     conn = get_db_connection()
     data = request.get_json()
     
-    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = ?', (req_id,)).fetchone()
+    req_row = conn.execute('SELECT * FROM staff_kitchen_requests WHERE id = %s', (req_id,)).fetchone()
     
     if not req_row:
         conn.close()
@@ -1620,9 +1718,9 @@ def reject_staff_kitchen_request(req_id):
     
     # Update request status
     conn.execute(
-        '''UPDATE staff_kitchen_requests SET approval_status = ?, approved_by = ?, 
-           rejection_reason = ?, approval_date = ?, updated_at = ?
-           WHERE id = ?''',
+        '''UPDATE staff_kitchen_requests SET approval_status = %s, approved_by = %s, 
+           rejection_reason = %s, approval_date = %s, updated_at = %s
+           WHERE id = %s''',
         ('rejected', data.get('approved_by', 'manager'), data.get('rejection_reason', ''),
          datetime.now(), datetime.now(), req_id)
     )
@@ -1642,8 +1740,8 @@ def staff_kitchen_assignments():
         data = request.get_json()
         assignment_id = str(uuid.uuid4())
         
-        staff_row = conn.execute('SELECT name FROM staff WHERE id = ?', (data.get('staff_id'),)).fetchone()
-        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = ?', (data.get('kitchen_id'),)).fetchone()
+        staff_row = conn.execute('SELECT name FROM staff WHERE id = %s', (data.get('staff_id'),)).fetchone()
+        kitchen_row = conn.execute('SELECT name FROM kitchens WHERE id = %s', (data.get('kitchen_id'),)).fetchone()
         
         if not staff_row or not kitchen_row:
             conn.close()
@@ -1652,14 +1750,14 @@ def staff_kitchen_assignments():
         conn.execute(
             '''INSERT INTO staff_kitchen_assignments 
                (id, staff_id, staff_name, kitchen_id, kitchen_name, position, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
             (assignment_id, data.get('staff_id'), staff_row['name'],
              data.get('kitchen_id'), kitchen_row['name'], data.get('position'),
              data.get('status', 'active'))
         )
         
         # Update staff's kitchen_id
-        conn.execute('UPDATE staff SET kitchen_id = ? WHERE id = ?',
+        conn.execute('UPDATE staff SET kitchen_id = %s WHERE id = %s',
                     (data.get('kitchen_id'), data.get('staff_id')))
         
         conn.commit()
@@ -1689,12 +1787,12 @@ def staff_kitchen_assignment_detail(assign_id):
     conn = get_db_connection()
     
     if request.method == 'DELETE':
-        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = %s', (assign_id,)).fetchone()
         if assign_row:
-            conn.execute('UPDATE staff_kitchen_assignments SET status = ? WHERE id = ?', 
+            conn.execute('UPDATE staff_kitchen_assignments SET status = %s WHERE id = %s', 
                         ('inactive', assign_id))
             # Optionally remove kitchen_id from staff if no other active assignment
-            conn.execute('UPDATE staff SET kitchen_id = NULL WHERE id = ? AND id NOT IN (SELECT staff_id FROM staff_kitchen_assignments WHERE status = "active")',
+            conn.execute('UPDATE staff SET kitchen_id = NULL WHERE id = %s AND id NOT IN (SELECT staff_id FROM staff_kitchen_assignments WHERE status = "active")',
                         (assign_row['staff_id'],))
         conn.commit()
         conn.close()
@@ -1702,13 +1800,13 @@ def staff_kitchen_assignment_detail(assign_id):
     
     if request.method == 'PUT':
         data = request.get_json()
-        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+        assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = %s', (assign_id,)).fetchone()
         
         if assign_row:
             conn.execute(
-                '''UPDATE staff_kitchen_assignments SET position = ?, status = ?, 
-                   end_date = ?, notes = ?
-                   WHERE id = ?''',
+                '''UPDATE staff_kitchen_assignments SET position = %s, status = %s, 
+                   end_date = %s, notes = %s
+                   WHERE id = %s''',
                 (data.get('position', assign_row['position']),
                  data.get('status', assign_row['status']),
                  data.get('end_date', assign_row['end_date']),
@@ -1717,7 +1815,7 @@ def staff_kitchen_assignment_detail(assign_id):
             )
             conn.commit()
             
-            updated = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+            updated = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = %s', (assign_id,)).fetchone()
             conn.close()
             return jsonify({'success': True, 'assignment': dict(updated)})
         
@@ -1725,7 +1823,7 @@ def staff_kitchen_assignment_detail(assign_id):
         return jsonify({'error': 'Assignment not found'}), 404
     
     # GET single assignment
-    assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = ?', (assign_id,)).fetchone()
+    assign_row = conn.execute('SELECT * FROM staff_kitchen_assignments WHERE id = %s', (assign_id,)).fetchone()
     conn.close()
     
     if assign_row:
@@ -1746,80 +1844,7 @@ def pending_requests():
     return jsonify({'requests': requests_list, 'count': len(requests_list)})
 
 
-if __name__ == '__main__':
-    # Initialize database on startup
-    if not os.path.exists(DB_PATH):
-        init_db()
-    else:
-        # Ensure tables exist even if DB exists
-        init_db()
-    
-    # Migration: Create order_items table if it doesn't exist (for existing databases)
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS order_items (
-                id TEXT PRIMARY KEY,
-                order_id TEXT NOT NULL,
-                food_item_id TEXT NOT NULL,
-                food_name TEXT,
-                category_name TEXT,
-                quantity INTEGER NOT NULL,
-                price REAL NOT NULL,
-                notes TEXT,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (order_id) REFERENCES orders(id),
-                FOREIGN KEY (food_item_id) REFERENCES food_items(id)
-            )
-        ''')
-        
-        # Add status column if it doesn't exist (for existing tables)
-        try:
-            cursor.execute('ALTER TABLE order_items ADD COLUMN status TEXT DEFAULT "pending"')
-        except:
-            pass  # Column already exists
-        
-        # Add updated_at column if it doesn't exist
-        try:
-            cursor.execute('ALTER TABLE order_items ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-        except:
-            pass  # Column already exists
-        
-        # Create kitchen_assignments table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS kitchen_assignments (
-                id TEXT PRIMARY KEY,
-                item_id TEXT NOT NULL,
-                kitchen_id TEXT NOT NULL,
-                order_id TEXT NOT NULL,
-                status TEXT DEFAULT 'pending',
-                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                FOREIGN KEY (item_id) REFERENCES order_items(id),
-                FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
-                FOREIGN KEY (order_id) REFERENCES orders(id),
-                UNIQUE(item_id, kitchen_id, order_id)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-        print("✓ Database migration completed")
-    except Exception as e:
-        print(f"✓ Migration check: {e}")
-    
-    # Start Order Monitor if available
-    if start_order_monitor:
-        try:
-            start_order_monitor()
-            print("✓ Order Monitor started (runs every 5 seconds)")
-        except Exception as e:
-            print(f"⚠️  Could not start Order Monitor: {e}")
-    
-    app.run(debug=True, host='0.0.0.0', port=5100)# ============================================================================
+# ============================================================================
 # WEBHOOK API FOR EXTERNAL ORDER INTEGRATION
 # ============================================================================
 
@@ -1880,7 +1905,7 @@ def receive_order_webhook():
         # Insert order with webhook data
         conn.execute(
             '''INSERT INTO orders (id, order_number, customer_name, status, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
             (db_order_id, data.get('order_id'), data.get('customer_name'), 'pending',
              f"Phone: {data.get('phone_number')}", created_date, datetime.now().isoformat())
         )
@@ -1919,11 +1944,7 @@ def receive_order_webhook():
 
 from kitchen_manager import KitchenManager
 
-@app.route('/api/kitchens', methods=['GET'])
-def get_kitchens():
-    """Get all kitchen information"""
-    kitchens = KitchenManager.get_all_kitchens()
-    return jsonify({'kitchens': kitchens})
+# Note: /api/kitchens GET and POST route is defined earlier in the file (around line 511)
 
 @app.route('/api/kitchens/<kitchen_id>/assignments', methods=['GET'])
 def get_kitchen_assignments(kitchen_id):
@@ -1944,13 +1965,73 @@ def get_kitchen_assignments(kitchen_id):
     conn.close()
     return jsonify({'assignments': []})
 
+@app.route('/api/kitchens/<kitchen_id>/current-assignments', methods=['GET'])
+def get_kitchen_current_assignments(kitchen_id):
+    """Get current active assignments for a kitchen (pending/preparing)"""
+    conn = get_db_connection()
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Get current assignments with order and item details
+        cursor.execute('''
+            SELECT 
+                ka.id as assignment_id,
+                ka.status,
+                ka.started,
+                ka.completed,
+                ka.assigned_at,
+                ka.completed_at,
+                oi.id as order_item_id,
+                oi.food_name,
+                oi.category_name,
+                oi.quantity,
+                oi.price,
+                oi.notes as item_notes,
+                o.id as order_id,
+                o.order_number,
+                o.customer_name,
+                o.table_number,
+                o.status as order_status,
+                o.created_at as order_created_at
+            FROM kitchen_assignments ka
+            INNER JOIN order_items oi ON ka.item_id = oi.id
+            INNER JOIN orders o ON ka.order_id = o.id
+            WHERE ka.kitchen_id = %s
+            AND ka.completed = 0
+            ORDER BY ka.assigned_at ASC
+        ''', (kitchen_id,))
+        
+        assignments = cursor.fetchall()
+        
+        # Convert to list of dicts
+        result = []
+        for assignment in assignments:
+            result.append(dict(assignment))
+        
+        conn.close()
+        print("result : ",result)
+        return jsonify({
+            'success': True,
+            'assignments': result,
+            'count': len(result)
+        })
+        
+    except Exception as e:
+        conn.close()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'assignments': []
+        }), 500
+
 @app.route('/api/orders/<order_id>/assign-kitchens', methods=['POST'])
 def assign_order_to_kitchens(order_id):
     """Assign order items to specific kitchens"""
     conn = get_db_connection()
     
     # Get order
-    order_row = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+    order_row = conn.execute('SELECT * FROM orders WHERE id = %s', (order_id,)).fetchone()
     if not order_row:
         conn.close()
         return jsonify({'error': 'Order not found'}), 404
@@ -1973,20 +2054,20 @@ def assign_order_to_kitchens(order_id):
                 conn.execute('''
                     UPDATE order_items 
                     SET status = 'preparing'
-                    WHERE id = ?
+                    WHERE id = %s
                 ''', (item_id,))
                 
                 # Store kitchen assignment
                 assignment_id = str(uuid.uuid4())
                 conn.execute('''
                     INSERT OR IGNORE INTO kitchen_assignments (id, item_id, kitchen_id, order_id, status)
-                    VALUES (?, ?, ?, ?, 'pending')
+                    VALUES (%s, %s, %s, %s, 'pending')
                 ''', (assignment_id, item_id, kitchen_id, order_id))
         
         conn.commit()
     
     # Get updated items
-    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    items_rows = conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall()
     items = [dict(row) for row in items_rows]
     order_data['items'] = items
     
@@ -1995,7 +2076,7 @@ def assign_order_to_kitchens(order_id):
         SELECT DISTINCT ka.kitchen_id, k.name, k.icon
         FROM kitchen_assignments ka
         JOIN kitchens k ON ka.kitchen_id = k.id
-        WHERE ka.order_id = ?
+        WHERE ka.order_id = %s
     ''', (order_id,)).fetchall()
     
     kitchen_assignments = {}
@@ -2007,7 +2088,7 @@ def assign_order_to_kitchens(order_id):
         items_for_kitchen = conn.execute('''
             SELECT oi.* FROM order_items oi
             JOIN kitchen_assignments ka ON oi.id = ka.item_id
-            WHERE ka.kitchen_id = ? AND oi.order_id = ?
+            WHERE ka.kitchen_id = %s AND oi.order_id = %s
         ''', (kitchen_id, order_id)).fetchall()
         
         kitchen_assignments[kitchen_id] = {
@@ -2027,7 +2108,7 @@ def assign_order_to_kitchens(order_id):
                 assignment_id = str(uuid.uuid4())
                 conn.execute('''
                     INSERT OR IGNORE INTO kitchen_assignments (id, item_id, kitchen_id, order_id, status)
-                    VALUES (?, ?, ?, ?, 'pending')
+                    VALUES (%s, %s, %s, %s, 'pending')
                 ''', (assignment_id, item['id'], kitchen_id, order_id))
             
             kitchen_info = KitchenManager.get_kitchen_details(kitchen_id)
@@ -2065,8 +2146,8 @@ def order_kitchen_status(order_id):
         # Update item status in order_items table
         conn.execute('''
             UPDATE order_items 
-            SET status = ?, updated_at = ?
-            WHERE id = ?
+            SET status = %s, updated_at = %s
+            WHERE id = %s
         ''', (new_status, datetime.now().isoformat(), item_id))
         
         conn.commit()
@@ -2076,7 +2157,7 @@ def order_kitchen_status(order_id):
             SELECT COUNT(*) as total, 
                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
             FROM order_items 
-            WHERE order_id = ?
+            WHERE order_id = %s
         ''', (order_id,)).fetchone()
         
         total = cursor['total']
@@ -2084,14 +2165,14 @@ def order_kitchen_status(order_id):
         
         # Update order status if all items completed
         if total == completed:
-            conn.execute('UPDATE orders SET status = ? WHERE id = ?', ('completed', order_id))
+            conn.execute('UPDATE orders SET status = %s WHERE id = %s', ('completed', order_id))
             conn.commit()
         
         conn.close()
         return jsonify({'success': True, 'item_id': item_id, 'status': new_status})
     
     # GET - retrieve all items and their status
-    items = conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall()
+    items = conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall()
     conn.close()
     
     items_data = []
@@ -2117,14 +2198,14 @@ def transition_item_status(item_id):
     # Update item
     conn.execute('''
         UPDATE order_items 
-        SET status = ?, updated_at = ?
-        WHERE id = ?
+        SET status = %s, updated_at = %s
+        WHERE id = %s
     ''', (new_status, datetime.now().isoformat(), item_id))
     
     conn.commit()
     
     # Get updated item
-    item = conn.execute('SELECT * FROM order_items WHERE id = ?', (item_id,)).fetchone()
+    item = conn.execute('SELECT * FROM order_items WHERE id = %s', (item_id,)).fetchone()
     conn.close()
     
     return jsonify({
@@ -2151,14 +2232,14 @@ def kitchen_agent_ask():
     
     if include_context and order_id:
         conn = get_db_connection()
-        order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+        order = conn.execute('SELECT * FROM orders WHERE id = %s', (order_id,)).fetchone()
         
         if order:
             context['order'] = {
                 'id': order['id'],
                 'table_name': order['table_name'],
                 'status': order['status'],
-                'items_count': len(conn.execute('SELECT * FROM order_items WHERE order_id = ?', (order_id,)).fetchall())
+                'items_count': len(conn.execute('SELECT * FROM order_items WHERE order_id = %s', (order_id,)).fetchall())
             }
         
         # Get kitchen stats
@@ -2216,3 +2297,87 @@ def kitchen_agent_suggest():
     response = ask_kitchen_agent(prompt, {'kitchen_stats': stats})
     
     return jsonify(response)
+
+
+if __name__ == '__main__':
+    # Initialize database on startup
+    init_db()
+    
+    # Migration: Create order_items table if it doesn't exist (for existing databases)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS order_items (
+                id VARCHAR(255) PRIMARY KEY,
+                order_id VARCHAR(255) NOT NULL,
+                food_item_id VARCHAR(255) NOT NULL,
+                food_name VARCHAR(255),
+                category_name VARCHAR(255),
+                quantity INT NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                notes TEXT,
+                status VARCHAR(255) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (order_id) REFERENCES orders(id),
+                FOREIGN KEY (food_item_id) REFERENCES food_items(id)
+            )
+        ''')
+        
+        # Add status column if it doesn't exist (for existing tables)
+        try:
+            cursor.execute('ALTER TABLE order_items ADD COLUMN status VARCHAR(255) DEFAULT "pending"')
+        except:
+            pass  # Column already exists
+        
+        # Add updated_at column if it doesn't exist
+        try:
+            cursor.execute('ALTER TABLE order_items ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
+        except:
+            pass  # Column already exists
+        
+        # Create kitchen_assignments table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS kitchen_assignments (
+                id VARCHAR(255) PRIMARY KEY,
+                item_id VARCHAR(255) NOT NULL,
+                kitchen_id VARCHAR(255) NOT NULL,
+                order_id VARCHAR(255) NOT NULL,
+                status VARCHAR(255) DEFAULT 'pending',
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                FOREIGN KEY (item_id) REFERENCES order_items(id),
+                FOREIGN KEY (kitchen_id) REFERENCES kitchens(id),
+                FOREIGN KEY (order_id) REFERENCES orders(id),
+                UNIQUE(item_id, kitchen_id, order_id)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        print("✓ Database migration completed")
+    except Exception as e:
+        print(f"✓ Migration check: {e}")
+    
+    # Start Order Monitor if available
+    print("🔍 Checking Order Monitor availability...")
+    print(f"   start_order_monitor function: {start_order_monitor}")
+    
+    if start_order_monitor:
+        try:
+            print("🚀 Starting Order Monitor...")
+            start_order_monitor()
+            print("✓ Order Monitor started successfully")
+        except Exception as e:
+            print(f"❌ Could not start Order Monitor: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("⚠️  Order Monitor not available - import may have failed")
+    
+    print(f"\n{'='*60}")
+    print("🌐 Starting Flask application on port 5100...")
+    print(f"{'='*60}\n")
+    
+    app.run(debug=True, host='0.0.0.0', port=5100)

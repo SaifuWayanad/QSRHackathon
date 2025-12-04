@@ -1,0 +1,40 @@
+<!-- Order Types Section -->
+<div class="page-section" id="order-types">
+    <div class="section-header">
+        <h2>Order Types</h2>
+        <p>Manage order types and delivery methods</p>
+    </div>
+    
+    <div class="action-bar">
+        <div></div>
+        <button class="btn btn-primary" onclick="openOrderTypeModal()">
+            + Add Order Type
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table id="order-types-table">
+                <thead>
+                    <tr>
+                        <th>Order Type</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="order-types-tbody">
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <p>No order types yet. Add your first order type!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/order_types.js') }}"></script>

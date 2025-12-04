@@ -1,0 +1,28 @@
+✓ Stream database initialized
+✓ Kitchen Agent initialized successfully
+✓ Database initialized successfully
+✓ Database migration completed
+🔍 Checking Order Monitor availability...
+   start_order_monitor function: <function start_order_monitor at 0x1094a1c60>
+🚀 Starting Order Monitor...
+🔄 Running initial metrics update...
+✓ Metrics updated - Pending: 0
+ℹ️  No pending orders - skipping event trigger
+🔄 Order Monitor started (polling every 30 seconds)
+✓ Order Monitor started in background thread
+✓ Order Monitor started successfully
+
+============================================================
+🌐 Starting Flask application on port 5100...
+============================================================
+
+ * Serving Flask app 'app'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5100
+ * Running on http://192.168.0.101:5100
+Press CTRL+C to quit
+ * Restarting with watchdog (fsevents)
+ * Debugger is active!
+ * Debugger PIN: 322-127-858
