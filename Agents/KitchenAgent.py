@@ -425,7 +425,7 @@ def db_run_query_tool(conn, query, params=None):
 # PgVector already imported at top with try/except
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-ANTHROPIC_API_KEY =  "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"
+ANTHROPIC_API_KEY =  "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"
 
 # Global knowledge variable
 knowledge = None

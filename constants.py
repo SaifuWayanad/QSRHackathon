@@ -11,3 +11,7 @@ MYSQL_PASSWORD = 'l*V2aA1gaee%9Yho'
 MYSQL_DATABASE = 'qsr_db'  # Changed to lowercase
 # MySQL Connection URL
 MYSQL_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+
+
+
+

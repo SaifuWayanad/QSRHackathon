@@ -963,14 +963,132 @@
             input.value = '';
             input.style.height = 'auto';
 
-            // Simulate restaurant response
-            setTimeout(() => {
-                showTypingIndicator();
-                setTimeout(() => {
-                    removeTypingIndicator();
-                    addMessage('Thanks for your message! Our team will respond shortly. 👨‍🍳', 'restaurant');
-                }, 2000);
-            }, 500);
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Get or create session ID from sessionStorage
+            let sessionId = sessionStorage.getItem('chat_session_id');
+            
+            // Note: Session will be created automatically by backend if not provided
+            // Backend will return session_id in response which we'll save
+
+            // Use streaming for better UX
+            sendMessageStream(message, sessionId);
+        }
+
+        function sendMessageStream(message, sessionId) {
+            // Send to customer agent streaming API
+            fetch('/api/customer-chat-stream', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: sessionId  // Can be null, backend will create one
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let responseText = '';
+                let messageDiv = null;
+
+                function processStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            removeTypingIndicator();
+                            if (!messageDiv && responseText) {
+                                addMessage(responseText, 'restaurant');
+                            }
+                            return;
+                        }
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // Keep incomplete line in buffer
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    
+                                    if (data.error) {
+                                        removeTypingIndicator();
+                                        addMessage('Sorry, I encountered an error: ' + data.error, 'restaurant');
+                                        return;
+                                    }
+                                    
+                                    // Handle streaming chunks
+                                    if (data.chunk) {
+                                        removeTypingIndicator();
+                                        
+                                        if (!messageDiv) {
+                                            // Create message div for streaming
+                                            const chatMessages = document.getElementById('chatMessages');
+                                            const emptyState = chatMessages.querySelector('.empty-state');
+                                            if (emptyState) {
+                                                emptyState.remove();
+                                            }
+
+                                            messageDiv = document.createElement('div');
+                                            messageDiv.className = 'message restaurant';
+                                            const now = new Date();
+                                            const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                                            
+                                            messageDiv.innerHTML = `
+                                                <div>
+                                                    <div class="message-content"></div>
+                                                    <div class="message-time">${timeString}</div>
+                                                </div>
+                                            `;
+                                            chatMessages.appendChild(messageDiv);
+                                        }
+
+                                        responseText += data.chunk;
+                                        const contentDiv = messageDiv.querySelector('.message-content');
+                                        // Use innerHTML with proper line break conversion and preserve whitespace
+                                        contentDiv.innerHTML = responseText
+                                            .replace(/\n/g, '<br>')
+                                            .replace(/  /g, '&nbsp;&nbsp;');
+                                        contentDiv.style.whiteSpace = 'pre-wrap';
+                                        
+                                        const chatMessages = document.getElementById('chatMessages');
+                                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                                    }
+                                    
+                                    // Save session_id when received
+                                    if (data.session_id) {
+                                        sessionStorage.setItem('chat_session_id', data.session_id);
+                                        console.log('✅ Session saved:', data.session_id);
+                                    }
+
+                                    if (data.done) {
+                                        removeTypingIndicator();
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing SSE data:', e);
+                                }
+                            }
+                        }
+
+                        processStream();
+                    });
+                }
+
+                processStream();
+            })
+            .catch(error => {
+                removeTypingIndicator();
+                addMessage('Sorry, I could not connect to the server. Please try again. 🔌', 'restaurant');
+                console.error('Error:', error);
+            });
         }
 
         function sendQuickMessage(message) {
@@ -1009,9 +1127,14 @@
             const now = new Date();
             const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+            // Convert newlines to <br> and preserve spaces for proper formatting
+            const formattedText = text
+                .replace(/\n/g, '<br>')
+                .replace(/  /g, '&nbsp;&nbsp;');
+
             messageDiv.innerHTML = `
                 <div>
-                    <div class="message-content">${text}</div>
+                    <div class="message-content" style="white-space: pre-wrap;">${formattedText}</div>
                     <div class="message-time">${timeString}</div>
                 </div>
             `;

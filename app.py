@@ -31,6 +31,28 @@ except ImportError:
     get_today_orders_count = None
     get_today_summary = None
 
+# Import Customer Agent
+try:
+    from Agents.CustomerAgent import customer_agent, chat_with_customer
+except ImportError:
+    print("⚠️  Customer Agent not available (optional)")
+    customer_agent = None
+    chat_with_customer = None
+
+# Import Session Manager
+try:
+    from session_manager import (
+        create_session, get_session, save_message, 
+        get_conversation_history, update_session_customer
+    )
+except ImportError:
+    print("⚠️  Session Manager not available (optional)")
+    create_session = None
+    get_session = None
+    save_message = None
+    get_conversation_history = None
+    update_session_customer = None
+
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here-change-in-production'
 
@@ -449,6 +471,194 @@ def logout():
 def customer_chat():
     """Customer chat interface"""
     return render_template('customer_chat.html')
+
+
+message = ""
+@app.route('/api/customer-chat', methods=['POST'])
+def api_customer_chat():
+    """API endpoint for customer chat with streaming support"""
+    try:
+        data = request.get_json()
+        single_message = data.get('message', '').strip()
+        print("message. : ", message)
+        session_id = data.get('session_id', str(uuid.uuid4()))
+        message = message + "\nCustomer: " + single_message
+        if not message:
+            return jsonify({
+                'success': False,
+                'error': 'Message is required'
+            }), 400
+        
+        # Check if customer agent is available
+        if not chat_with_customer:
+            return jsonify({
+                'success': False,
+                'error': 'Customer agent is not available'
+            }), 503
+        
+        # Get response from customer agent
+        response = chat_with_customer(message, session_id)
+        message = message + "\nAgent: " + response
+        
+        return jsonify({
+            'success': True,
+            'response': response,
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in customer chat: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+import re
+
+def remove_tool_calls(response_text: str) -> str:
+    """
+    Removes execute_database_query(...) logs from the chatbot response.
+    Works with variations, including params and time logs.
+    """
+    # Remove full tool call lines like:
+    # execute_database_query(query=...) completed in 0.123s
+    pattern = r"execute_database_query\(.*?\)(?: completed in .*?s)?"
+    
+    cleaned = re.sub(pattern, "", response_text, flags=re.DOTALL)
+
+    # Remove extra blank spaces caused by deletion
+    cleaned = re.sub(r"\n\s*\n", "\n", cleaned).strip()
+
+    return cleaned
+
+
+@app.route('/api/customer-chat-stream', methods=['POST'])
+def api_customer_chat_stream():
+    """Streaming endpoint for customer chat with session management"""
+    from flask import Response, stream_with_context
+    
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        print("Streaming message: ", message)
+        session_id = data.get('session_id')
+        
+        if not message:
+            return jsonify({
+                'success': False,
+                'error': 'Message is required'
+            }), 400
+        
+        # Check if customer agent is available
+        if not customer_agent:
+            return jsonify({
+                'success': False,
+                'error': 'Customer agent is not available'
+            }), 503
+        
+        # Check if session manager is available
+        if not create_session or not save_message:
+            return jsonify({
+                'success': False,
+                'error': 'Session manager is not available'
+            }), 503
+        
+        # Create or get session
+        if not session_id:
+            session_data = create_session()
+            if session_data:
+                session_id = session_data['id']
+            else:
+                session_id = str(uuid.uuid4())
+        else:
+            # Verify session exists
+            session_data = get_session(session_id)
+            if not session_data:
+                # Create new session with provided ID
+                session_data = create_session()
+                if session_data:
+                    session_id = session_data['id']
+        
+        # Save customer message
+        save_message(session_id, 'customer', message)
+        
+        def generate():
+            """Generate streaming response"""
+            try:
+                # Import necessary modules
+                from Agents.customer_instructions import customer_instructions
+                from Agents.CustomerAgent import get_customer_knowledge
+                
+                # Get conversation history
+                history = get_conversation_history(session_id, format='text')
+                
+                # Get customer knowledge context
+                knowledge = get_customer_knowledge()
+                
+                # Create enhanced message with context and history
+                context_message = f"""
+                    {history}
+
+                    Current Customer Message: {message}
+
+                    Available Context:
+                    - {len(knowledge.get('available_items', []))} food items available
+                    - {len(knowledge.get('categories', []))} categories active
+                    - {len(knowledge.get('order_types', []))} order types available
+
+                    Database Schema Available: Use execute_database_query tool to access data.
+
+                    Remember: Continue the conversation naturally based on the history above.
+                    """
+                
+                # Stream the response
+                response = customer_agent.run(context_message, stream=True)
+                
+                full_response = ""
+                
+                # Yield chunks as they come
+                for chunk in response:
+                    if hasattr(chunk, 'content') and chunk.content:
+                        print(chunk.content)
+                        chunk_content = remove_tool_calls(chunk.content)
+                        full_response += chunk_content
+                        yield f"data: {json.dumps({'chunk': chunk_content, 'done': False})}\n\n"
+                
+                # Save agent response
+                if full_response:
+                    save_message(session_id, 'agent', full_response)
+                
+                # Send completion message
+                yield f"data: {json.dumps({'chunk': '', 'done': True, 'session_id': session_id})}\n\n"
+                
+            except Exception as e:
+                error_msg = f"Error in streaming: {str(e)}"
+                print(f"❌ {error_msg}")
+                import traceback
+                traceback.print_exc()
+                yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
+        
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive'
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error in customer chat stream: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/hello', methods=['GET', 'POST'])
 def hello():
@@ -2010,7 +2220,7 @@ def get_kitchen_current_assignments(kitchen_id):
             result.append(dict(assignment))
         
         conn.close()
-        print("result : ",result)
+        # print("result : ",result)
         return jsonify({
             'success': True,
             'assignments': result,
@@ -2023,6 +2233,75 @@ def get_kitchen_current_assignments(kitchen_id):
             'success': False,
             'error': str(e),
             'assignments': []
+        }), 500
+
+@app.route('/api/kitchen-assignments/<assignment_id>/status', methods=['PUT'])
+def update_kitchen_assignment_status(assignment_id):
+    """Update the status of a kitchen assignment (start/complete)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if not new_status:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Status is required'}), 400
+        
+        # Check if assignment exists
+        cursor.execute('SELECT * FROM kitchen_assignments WHERE id = %s', (assignment_id,))
+        assignment = cursor.fetchone()
+        
+        if not assignment:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Assignment not found'}), 404
+        
+        # Update based on status
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        if new_status == 'preparing':
+            # Mark as started
+            cursor.execute('''
+                UPDATE kitchen_assignments 
+                SET started = 1, status = 'preparing', assigned_at = %s
+                WHERE id = %s
+            ''', (current_time, assignment_id))
+        elif new_status == 'completed':
+            # Mark as completed
+            cursor.execute('''
+                UPDATE kitchen_assignments 
+                SET completed = 1, status = 'completed', completed_at = %s
+                WHERE id = %s
+            ''', (current_time, assignment_id))
+        else:
+            # General status update
+            cursor.execute('''
+                UPDATE kitchen_assignments 
+                SET status = %s
+                WHERE id = %s
+            ''', (new_status, assignment_id))
+        
+        conn.commit()
+        
+        # Get updated assignment
+        cursor.execute('SELECT * FROM kitchen_assignments WHERE id = %s', (assignment_id,))
+        updated_assignment = cursor.fetchone()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Status updated to {new_status}',
+            'assignment': dict(updated_assignment) if updated_assignment else None
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 @app.route('/api/orders/<order_id>/assign-kitchens', methods=['POST'])

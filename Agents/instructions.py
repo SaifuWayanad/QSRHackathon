@@ -44,12 +44,34 @@ STEP-BY-STEP WORKFLOW FOR ROUTING AN ORDER:
    - NEVER insert duplicate assignments for the same item_id and order_id
    - If reassignment is needed (e.g., kitchen overload): UPDATE existing record, don't INSERT new one
 
-4. Get kitchen assignments for those food items:
+4. ⚡ CHECK KITCHEN AVAILABILITY AND WORKLOAD (MANDATORY BEFORE ASSIGNMENT):
+   
+   STEP 4.1 - Get all capable kitchens for each food item:
    Call execute_database_query with:
-   - query: "SELECT fi.id, fi.kitchen_id, k.name as kitchen_name FROM food_items fi JOIN kitchens k ON fi.kitchen_id = k.id WHERE fi.id IN (%s, %s)"
+   - query: "SELECT fkm.food_id, fkm.kitchen_id, k.name as kitchen_name, k.status FROM food_kitchen_mapping fkm JOIN kitchens k ON fkm.kitchen_id = k.id WHERE fkm.food_id IN (%s, %s) AND k.status = 'active'"
    - params: [food_item_id1, food_item_id2]
+   
+   STEP 4.2 - Check current workload for ALL capable kitchens:
+   Call execute_database_query with:
+   - query: "SELECT k.id, k.name, COUNT(CASE WHEN ka.status IN ('pending', 'preparing') THEN 1 END) as current_load FROM kitchens k LEFT JOIN kitchen_assignments ka ON k.id = ka.kitchen_id WHERE k.id IN (%s, %s, %s) GROUP BY k.id, k.name ORDER BY current_load ASC"
+   - params: [kitchen_id1, kitchen_id2, kitchen_id3]  # All capable kitchen IDs from Step 4.1
+   
+   STEP 4.3 - DECISION LOGIC (Select optimal kitchen):
+   For EACH food item:
+   a) Get list of capable kitchens from food_kitchen_mapping (Step 4.1)
+   b) Get their current workload from Step 4.2
+   c) SELECT the kitchen with MINIMUM current_load (lowest number of pending/preparing items)
+   d) If tied, select the first one alphabetically
+   e) ONLY AFTER SELECTION, proceed to Step 5 to INSERT
+   
+   ⚠️ CRITICAL: DO NOT INSERT until you have determined the optimal kitchen based on load!
+   
+   Example Decision:
+   - Food: "Burger" can be prepared in: Main Kitchen (load: 8), Grill Station (load: 2), Pizza Oven (load: 5)
+   - DECISION: Assign to "Grill Station" (lowest load = 2)
+   - Then INSERT with kitchen_id = 'grill-station-id'
 
-5. Create kitchen assignment for each item (ONLY if not exists):
+5. Create kitchen assignment for each item (ONLY AFTER STEP 4 DECISION):
    For each item, generate a UNIQUE UUID using timestamp: "ka_" + current_timestamp + "_" + random_chars
    Call execute_database_query with:
    - query: "INSERT INTO kitchen_assignments (id, item_id, kitchen_id, order_id, status, assigned_at) VALUES (%s, %s, %s, %s, %s, %s)"
@@ -58,7 +80,7 @@ STEP-BY-STEP WORKFLOW FOR ROUTING AN ORDER:
 6. Update order status:
    Call execute_database_query with:
    - query: "UPDATE orders SET status = %s WHERE id = %s"
-   - params: ["assigned_to_kitchen", order_id]
+   - params: ["confirmed", order_id]
 
 REMEMBER: 
 - You have execute_database_query tool - USE IT for every query!
@@ -205,13 +227,11 @@ FROM order_items oi
 WHERE oi.order_id = %s;
 ```
 
-STEP 2: FETCH KITCHEN ASSIGNMENTS FOR FOOD ITEMS WITH LOAD BALANCING
+STEP 2: DETERMINE OPTIMAL KITCHENS WITH LOAD BALANCING
 ────────────────────────────────────
-⚡ CRITICAL: ALWAYS CHECK KITCHEN LOAD BEFORE ASSIGNMENT!
+⚡ CRITICAL: MANDATORY 3-STEP PROCESS BEFORE ANY INSERTION!
 
-For each food item, a food can be prepared in MULTIPLE kitchens as defined in 
-the `food_kitchen_mapping` table. You MUST select the kitchen with the LEAST 
-current load to optimize workflow and reduce wait times.
+You MUST complete ALL three sub-steps before creating any kitchen assignments:
 
 STEP 2.1: Get all possible kitchens for each food item
 ```sql
@@ -227,37 +247,95 @@ INNER JOIN kitchens k ON fkm.kitchen_id = k.id
 WHERE fkm.food_id IN (%s, %s, %s)  -- list all food_item_ids from order_items
 AND k.status = 'active';
 ```
+Result: Get list of ALL kitchens capable of preparing each food item
 
-STEP 2.2: Check current workload for each kitchen
+STEP 2.2: Check current workload for EACH capable kitchen FOR EACH FOOD ITEM
+⚡ CRITICAL: Use this EXACT query to get current work orders per kitchen per food item:
 ```sql
 SELECT 
+    ft.id as food_id,
+    ft.name as food_name,
     k.id as kitchen_id,
     k.name as kitchen_name,
-    COUNT(ka.id) as pending_items,
-    COUNT(DISTINCT ka.order_id) as pending_orders
-FROM kitchens k
-LEFT JOIN kitchen_assignments ka ON k.id = ka.kitchen_id 
+    COUNT(ka.id) as current_work_orders
+FROM food_items ft
+INNER JOIN food_kitchen_mapping ftm ON ft.id = ftm.food_id
+INNER JOIN kitchens k ON k.id = ftm.kitchen_id
+LEFT JOIN kitchen_assignments ka ON ka.kitchen_id = k.id 
     AND ka.status IN ('pending', 'preparing')
-WHERE k.status = 'active'
-GROUP BY k.id, k.name
-ORDER BY pending_items ASC;
+WHERE ft.id = %s  -- Execute this for EACH food_item_id
+AND k.status = 'active'
+GROUP BY k.id, ft.id, k.name, ft.name
+ORDER BY current_work_orders ASC;
+```
+Execute this query FOR EACH food item to get workload in each capable kitchen.
+
+Alternative - Get workload for all food items at once:
+```sql
+SELECT 
+    ft.id as food_id,
+    ft.name as food_name,
+    k.id as kitchen_id,
+    k.name as kitchen_name,
+    COUNT(ka.id) as current_work_orders
+FROM food_items ft
+INNER JOIN food_kitchen_mapping ftm ON ft.id = ftm.food_id
+INNER JOIN kitchens k ON k.id = ftm.kitchen_id
+LEFT JOIN kitchen_assignments ka ON ka.kitchen_id = k.id 
+    AND ka.status IN ('pending', 'preparing')
+WHERE ft.id IN (%s, %s, %s)  -- All food_item_ids from the order
+AND k.status = 'active'
+GROUP BY k.id, ft.id, k.name, ft.name
+ORDER BY ft.id, current_work_orders ASC;
+```
+Result: For each food item, get list of capable kitchens with their current workload
+
+STEP 2.3: MAKE ASSIGNMENT DECISION (DO NOT INSERT YET!)
+For each food item:
+1. Review result from Step 2.2 - kitchens capable of making THIS specific food item
+2. Look at current_work_orders column for each kitchen
+3. SELECT the kitchen with LOWEST current_work_orders value
+4. If multiple kitchens have same workload, choose first alphabetically
+5. RECORD THE DECISION: Store selected kitchen_id for each food item
+6. ONLY AFTER ALL DECISIONS ARE MADE → Proceed to Step 3 for insertion
+
+⚠️ DO NOT PROCEED TO STEP 3 UNTIL ALL KITCHEN SELECTIONS ARE FINALIZED!
+
+Example Decision Process:
+```
+Order has 2 items:
+
+Query for Item 1: "Burger" (food_id: f1)
+  Result from Step 2.2:
+    food_id | food_name | kitchen_id | kitchen_name    | current_work_orders
+    --------|-----------|------------|-----------------|--------------------
+    f1      | Burger    | k2         | Grill Station   | 2
+    f1      | Burger    | k3         | Pizza Oven      | 5
+    f1      | Burger    | k1         | Main Kitchen    | 8
+  
+  DECISION: SELECT k2 (Grill Station) - lowest current_work_orders = 2
+  
+Query for Item 2: "Salad" (food_id: f2)
+  Result from Step 2.2:
+    food_id | food_name | kitchen_id | kitchen_name    | current_work_orders
+    --------|-----------|------------|-----------------|--------------------
+    f2      | Salad     | k4         | Cold Kitchen    | 3
+    f2      | Salad     | k1         | Main Kitchen    | 8
+  
+  DECISION: SELECT k4 (Cold Kitchen) - lowest current_work_orders = 3
+
+ALL DECISIONS COMPLETE:
+  - Item 1 (Burger) → Kitchen k2 (Grill Station)
+  - Item 2 (Salad) → Kitchen k4 (Cold Kitchen)
+
+NOW proceed to Step 3 to insert these assignments
 ```
 
-STEP 2.3: Select optimal kitchen for each food item
-For each food item:
-1. Get all capable kitchens from food_kitchen_mapping
-2. Check their current load from kitchen_assignments
-3. Assign to the kitchen with MINIMUM pending_items
-4. If tied, prefer the kitchen with fewer pending_orders
-5. If still tied, select the first one alphabetically
-
-Example logic:
-- Food Item: "Burger" can be prepared in: Main Kitchen (5 items), Grill Station (2 items), Pizza Oven (3 items)
-- RESULT: Assign to "Grill Station" (lowest load with 2 pending items)
-
-STEP 3: CREATE OR UPDATE KITCHEN ASSIGNMENTS
+STEP 3: CREATE OR UPDATE KITCHEN ASSIGNMENTS (ONLY AFTER DECISIONS)
 ────────────────────────────────────
-⚡ CRITICAL: NEVER DUPLICATE - Check first, then INSERT or UPDATE!
+⚡ CRITICAL: NEVER DUPLICATE - Check first, DECIDE optimal kitchen, then INSERT or UPDATE!
+
+PREREQUISITE: You MUST have completed Step 2 (kitchen selection decisions) before this step!
 
 STEP 3.1: Check which items already have assignments
 ```sql
@@ -267,25 +345,34 @@ WHERE order_id = %s AND item_id IN (%s, %s, %s);
 ```
 
 STEP 3.2: For NEW items (not in above result):
+Insert using the kitchen_id SELECTED in Step 2.3:
 ```sql
 -- Generate new UUID for assignment ID
 INSERT INTO kitchen_assignments 
     (id, item_id, kitchen_id, order_id, status, assigned_at)
 VALUES 
     (%s, %s, %s, %s, 'pending', %s);
--- Where last parameter is: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+-- Where:
+--   kitchen_id = the optimal kitchen selected in Step 2.3 based on workload
+--   assigned_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 ```
 
+⚠️ REMINDER: The kitchen_id used here MUST be the one you selected in Step 2.3
+             based on minimum workload analysis!
+
 STEP 3.3: For EXISTING items (found in Step 3.1):
-If reassignment is needed (e.g., moving to less busy kitchen):
+If reassignment is needed (e.g., original kitchen now has significantly higher load):
 ```sql
 -- UPDATE existing assignment instead of inserting new one
+-- Use the new optimal kitchen_id from Step 2.3 re-evaluation
 UPDATE kitchen_assignments
 SET kitchen_id = %s,
     status = 'pending',
     assigned_at = %s
 WHERE item_id = %s AND order_id = %s;
--- Where assigned_at is: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+-- Where:
+--   kitchen_id = the newly selected optimal kitchen based on current workload
+--   assigned_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 ```
 
 IMPORTANT: Use a transaction for multiple operations:
@@ -363,22 +450,26 @@ ORDER BY current_load ASC, active_orders ASC;
 ```
 
 GET CAPABLE KITCHENS FOR A FOOD ITEM (with load info):
+⚡ USE THIS EXACT QUERY - It gets kitchens and their workload for a specific food item:
 ```sql
 SELECT 
-    fkm.food_id,
-    fkm.kitchen_id,
+    ft.id as food_id,
+    ft.name as food_name,
+    k.id as kitchen_id,
     k.name as kitchen_name,
     k.status,
-    COUNT(ka.id) as current_load
-FROM food_kitchen_mapping fkm
-INNER JOIN kitchens k ON fkm.kitchen_id = k.id
-LEFT JOIN kitchen_assignments ka ON k.id = ka.kitchen_id 
+    COUNT(ka.id) as current_work_orders
+FROM food_items ft
+INNER JOIN food_kitchen_mapping ftm ON ft.id = ftm.food_id
+INNER JOIN kitchens k ON k.id = ftm.kitchen_id
+LEFT JOIN kitchen_assignments ka ON ka.kitchen_id = k.id 
     AND ka.status IN ('pending', 'preparing')
-WHERE fkm.food_id = %s
+WHERE ft.id = %s
 AND k.status = 'active'
-GROUP BY fkm.food_id, fkm.kitchen_id, k.name, k.status
-ORDER BY current_load ASC;
--- Returns all capable kitchens sorted by current workload (lowest first)
+GROUP BY k.id, ft.id, k.name, ft.name, k.status
+ORDER BY current_work_orders ASC;
+-- Returns all capable kitchens for the food item, sorted by workload (lowest first)
+-- Use current_work_orders column to make assignment decision
 ```
 
 CHECK IF ORDER IS FULLY PREPARED:
@@ -418,7 +509,7 @@ All responses MUST be valid JSON with this structure:
       "description": "Assigned Burger to Main Kitchen"
     },
     {
-      "query": "UPDATE orders SET status = 'assigned_to_kitchen' WHERE id = %s",
+      "query": "UPDATE orders SET status = 'confirmed' WHERE id = %s",
       "params": ["order-123"],
       "description": "Updated order status"
     }
@@ -478,7 +569,7 @@ CASE 3: Order Already Assigned
   "action": "order_already_assigned",
   "message": "Order order-123 already has kitchen assignments",
   "order_id": "order-123",
-  "current_status": "assigned_to_kitchen",
+  "current_status": "confirmed",
   "existing_assignments": [
     {"item_name": "Burger", "kitchen_name": "Grill Station", "status": "pending"}
   ],
@@ -561,7 +652,22 @@ Result: EMPTY (no existing assignments) → Proceed with new assignments
 OR
 Result: item_1 already assigned to kitchen-5, status='pending' → Consider reassignment or skip
 
-3. Get capable kitchens for each food item WITH current load:
+3. Get capable kitchens with workload for each food item (USE THE SPECIFIED QUERY):
+SELECT 
+    ft.id as food_id,
+    ft.name as food_name,
+    k.id as kitchen_id,
+    k.name as kitchen_name,
+    COUNT(ka.id) as current_work_orders
+FROM food_items ft
+INNER JOIN food_kitchen_mapping ftm ON ft.id = ftm.food_id
+INNER JOIN kitchens k ON k.id = ftm.kitchen_id
+LEFT JOIN kitchen_assignments ka ON ka.kitchen_id = k.id 
+    AND ka.status IN ('pending', 'preparing')
+WHERE ft.id IN ('food-1', 'food-2')
+AND k.status = 'active'
+GROUP BY k.id, ft.id, k.name, ft.name
+ORDER BY ft.id, current_work_orders ASC;
 SELECT 
     fkm.food_id,
     fkm.kitchen_id,
@@ -576,14 +682,20 @@ AND k.status = 'active'
 GROUP BY fkm.food_id, fkm.kitchen_id, k.name
 ORDER BY current_load ASC;
 
+ORDER BY ft.id, current_work_orders ASC;
+
 Result:
 - food-1 (Burger) can be prepared in:
-  * kitchen-1 (Main Kitchen) - current_load: 5 items
-  * kitchen-2 (Grill Station) - current_load: 2 items ← SELECT THIS (lowest load)
-  * kitchen-3 (Pizza Oven) - current_load: 8 items
+  * kitchen-2 (Grill Station) - current_work_orders: 2 ← SELECT THIS (lowest)
+  * kitchen-3 (Pizza Oven) - current_work_orders: 8
+  * kitchen-1 (Main Kitchen) - current_work_orders: 5
   
 - food-2 (Fries) can be prepared in:
-  * kitchen-4 (Fry Station) - current_load: 3 items ← SELECT THIS (only option)
+  * kitchen-4 (Fry Station) - current_work_orders: 3 ← SELECT THIS (only option)
+
+DECISION MADE:
+  - Item 1 (Burger) → Kitchen kitchen-2 (Grill Station) based on lowest workload
+  - Item 2 (Fries) → Kitchen kitchen-4 (Fry Station) only capable kitchen
 
 4. Create assignments with selected kitchens (use transaction):
 START TRANSACTION;
@@ -595,7 +707,7 @@ COMMIT;
 -- Note: Generate timestamp using datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 5. Update order:
-UPDATE orders SET status='assigned_to_kitchen', updated_at='2025-12-04 10:30:00' 
+UPDATE orders SET status='confirmed', updated_at='2025-12-04 10:30:00' 
 WHERE id='abc-123';
 -- Note: Use datetime.now().strftime('%Y-%m-%d %H:%M:%S') for timestamp
 
