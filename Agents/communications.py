@@ -122,6 +122,8 @@ class EventBus:
         else:
             print(f"⚠️  No handler for event: {self.event}")
 
+        
+
  
 # if __name__ == "__main__":
 #     # Example usage
