@@ -1,413 +1,510 @@
-"""
-Inventory Agent for QSR (Quick Service Restaurant) System
-6 Core Capabilities: 1) Stock monitoring, 2) Low stock alerts, 3) Demand forecasting,
-4) Anomaly detection, 5) Waste prevention, 6) Purchase order generation
-"""
-
 from agno.agent import Agent
 from agno.models.google import Gemini
 import os
-import sqlite3
+import sys
 import json
-from datetime import datetime, timedelta
-from typing import Dict, List
+import pymysql
+from datetime import datetime
+from Agents import inventory_mng_instructions
+from urllib.parse import quote_plus
+try:
+    from agno.models.anthropic import Claude
+except ImportError:
+    Claude = None
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import instructions and capabilities
-from inventory_mng_instructions import inventory_instructions
-from inventory_mng_capabilities import inventory_capabilities
+from Agents.instructions import kitchen_instructions
+from Agents.capabilities import kitchen_caps
+from Agents.db_schema import DatabaseSchema
+# Optional imports for vector storage
+try:
+    from agno.vectordb.pgvector import PgVector
+except ImportError:
+    PgVector = None
+try:
+    from agno.knowledge import Knowledge
+    from agno.knowledge.embedder.openai import OpenAIEmbedder
+except ImportError:
+    Knowledge = None
+    OpenAIEmbedder = None
+try:
+    from agno.db.mysql import MySQLDb
+except ImportError:
+    MySQLDb = None
+from constants import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
-# Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyD6v6dOt-hxwzcZWhwrizKfgM_oiwJjXTw")
-DB_PATH = os.getenv("DB_PATH", "my_database.db")
-
-# Initialize SQLite connection
-def get_db_connection():
-    """Get SQLite database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# Initialize Gemini Model
-gemini_model = Gemini("gemini-2.5-flash", api_key=GEMINI_API_KEY)
-
-# Create Agno Agent with Gemini
-inventory_agent = Agent(
-    name="InventoryManagementAgent",
-    model=gemini_model,
-    capabilities=inventory_capabilities,
-    instructions=inventory_instructions
-)
+# Initialize Google Gemini model
+gemini_model = Gemini("gemini-2.5-flash", api_key="AIzaSyD6v6dOt-hxwzcZWhwrizKfgM_oiwJjXTw")
+os.environ["GOOGLE_API_KEY"] = "AIzaSyD6v6dOt-hxwzcZWhwrizKfgM_oiwJjXTw"
 
 
-class InventoryManager:
-    """Inventory management helper for SQLite-based inventory operations"""
+
+
+def get_main_db_connection():
+    """Get connection to main MySQL database"""
+    try:
+        conn = pymysql.connect(
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
+    except Exception as e:
+        print(f"Error connecting to main database: {e}")
+        return None
+
+
+def get_kitchen_knowledge():
+    """Retrieve kitchen knowledge from database"""
+    conn = get_main_db_connection()
+    if not conn:
+        return {}
     
-    def __init__(self, db_path: str = DB_PATH):
-        self.db_path = db_path
-    
-    # ===== CAPABILITY 1: CURRENT STOCK MONITORING (SQLite) =====
-    def get_current_stock_status(self) -> Dict:
-        """Get real-time stock levels based on daily_production and order_items"""
-        conn = get_db_connection()
+    knowledge = {}
+    try:
+        # Get all kitchens
         cursor = conn.cursor()
+        cursor.execute("SELECT id, name, description, status FROM kitchens")
+        knowledge['kitchens'] = [dict(row) for row in cursor.fetchall()]
         
-        try:
-            # Query: Get production and sales data for today
-            cursor.execute("""
-                SELECT 
-                    fi.id,
-                    fi.name,
-                    fi.kitchen_id,
-                    fi.kitchen_name,
-                    COALESCE(dp.produced, 0) as produced_today,
-                    COALESCE(SUM(oi.quantity), 0) as sold_today
-                FROM food_items fi
-                LEFT JOIN daily_production dp ON fi.id = dp.food_id AND dp.date = DATE('now')
-                LEFT JOIN order_items oi ON fi.id = oi.food_item_id AND DATE(oi.created_at) = DATE('now')
-                GROUP BY fi.id
-                ORDER BY fi.name
-            """)
-            
-            results = cursor.fetchall()
-            stock_status = {
-                'timestamp': datetime.now().isoformat(),
-                'total_items': len(results),
-                'items': []
-            }
-            
-            for row in results:
-                availability = row['produced_today'] - row['sold_today']
-                status = 'critical' if availability <= 0 else 'low' if availability < 5 else 'normal'
-                
-                stock_status['items'].append({
-                    'food_id': row['id'],
-                    'food_name': row['name'],
-                    'kitchen': row['kitchen_name'],
-                    'produced_today': row['produced_today'],
-                    'sold_today': row['sold_today'],
-                    'availability': max(0, availability),
-                    'status': status
-                })
-            
-            return stock_status
+        # Get all food items with kitchen assignments
+        cursor.execute("""
+            SELECT id, name, category_name, kitchen_id, kitchen_name, price, description 
+            FROM food_items ORDER BY kitchen_name, category_name
+        """)
+        knowledge['food_items'] = [dict(row) for row in cursor.fetchall()]
         
-        finally:
-            conn.close()
+        # Get kitchen appliances
+        cursor.execute("""
+            SELECT ka.id, ka.kitchen_id, a.name as appliance_name, a.type, 
+                   ka.quantity, ka.location, ka.status
+            FROM kitchen_appliances ka
+            JOIN appliances a ON ka.appliance_id = a.id
+            ORDER BY ka.kitchen_id
+        """)
+        knowledge['kitchen_appliances'] = [dict(row) for row in cursor.fetchall()]
+        
+        # Get current orders
+        cursor.execute("""
+            SELECT id, order_number, customer_name, table_number, status, items_count, 
+                   total_amount, created_at FROM orders 
+            WHERE status IN ('pending', 'preparing') 
+            ORDER BY created_at DESC LIMIT 20
+        """)
+        knowledge['active_orders'] = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error retrieving kitchen knowledge: {e}")
     
-    # ===== CAPABILITY 2: LOW STOCK ALERTS =====
-    def generate_low_stock_alerts(self) -> List[Dict]:
-        """Generate alerts for low/critical stock items"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        alerts = []
-        
-        try:
-            stock_status = self.get_current_stock_status()
-            
-            for item in stock_status['items']:
-                if item['status'] in ['low', 'critical']:
-                    severity = 'critical' if item['status'] == 'critical' else 'warning'
-                    alert = {
-                        'alert_id': f"alert_{item['food_id']}_{datetime.now().timestamp()}",
-                        'timestamp': datetime.now().isoformat(),
-                        'food_id': item['food_id'],
-                        'food_name': item['food_name'],
-                        'severity': severity,
-                        'availability': item['availability'],
-                        'threshold': 0 if severity == 'critical' else 5,
-                        'action': 'immediate_production' if severity == 'critical' else 'schedule_production',
-                        'recipient_agents': ['KitchenAgent', 'CustomerHandlingAgent'] if severity == 'warning' 
-                                           else ['KitchenAgent', 'CustomerHandlingAgent', 'ManagerAgent']
-                    }
-                    
-                    # Update food_items status if critical
-                    if severity == 'critical':
-                        cursor.execute("UPDATE food_items SET status = 'unavailable' WHERE id = ?", (item['food_id'],))
-                        conn.commit()
-                    
-                    alerts.append(alert)
-            
-            return alerts
-        
-        finally:
-            conn.close()
-    
-    # ===== CAPABILITY 3: DEMAND FORECASTING (1-WEEK) =====
-    def forecast_demand_1week(self, food_id: str) -> Dict:
-        """Forecast demand for 1 week based on order history"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Get last 7 days of orders for this food item
-            cursor.execute("""
-                SELECT DATE(oi.created_at) as order_date, SUM(oi.quantity) as daily_quantity
-                FROM order_items oi
-                WHERE oi.food_item_id = ? AND oi.created_at >= DATE('now', '-7 days')
-                GROUP BY DATE(oi.created_at)
-                ORDER BY order_date
-            """, (food_id,))
-            
-            results = cursor.fetchall()
-            daily_data = {row['order_date']: row['daily_quantity'] for row in results}
-            
-            # Calculate average
-            total_demand = sum(daily_data.values()) if daily_data else 0
-            daily_avg = total_demand / 7 if total_demand > 0 else 1
-            
-            # Get food item details
-            cursor.execute("SELECT name FROM food_items WHERE id = ?", (food_id,))
-            food_row = cursor.fetchone()
-            food_name = food_row['name'] if food_row else 'Unknown'
-            
-            # Get current availability
-            cursor.execute("""
-                SELECT 
-                    COALESCE(dp.produced, 0) - COALESCE(SUM(oi.quantity), 0) as availability
-                FROM food_items fi
-                LEFT JOIN daily_production dp ON fi.id = dp.food_id AND dp.date = DATE('now')
-                LEFT JOIN order_items oi ON fi.id = oi.food_item_id AND DATE(oi.created_at) = DATE('now')
-                WHERE fi.id = ?
-            """, (food_id,))
-            
-            stock_row = cursor.fetchone()
-            current_availability = max(0, stock_row['availability'] if stock_row else 0)
-            
-            # Generate 7-day forecast with day-of-week multipliers
-            forecast = []
-            for day in range(7):
-                # 0=Mon, 1=Tue, ... 4=Fri, 5=Sat, 6=Sun
-                multiplier = 1.0
-                if day in [4, 5]:  # Friday, Saturday
-                    multiplier = 1.4
-                elif day == 6:  # Sunday
-                    multiplier = 1.2
-                
-                daily_demand = daily_avg * multiplier
-                forecast.append(round(daily_demand, 2))
-            
-            days_until_stockout = current_availability / max(1, max(forecast))
-            
-            return {
-                'food_id': food_id,
-                'food_name': food_name,
-                'daily_forecast': forecast,
-                'total_predicted_demand': sum(forecast),
-                'current_availability': current_availability,
-                'days_until_stockout': round(days_until_stockout, 1),
-                'confidence_level': 0.8 if daily_data else 0.5
-            }
-        
-        finally:
-            conn.close()
-    
-    # ===== CAPABILITY 4: ANOMALY DETECTION (SPIKES) =====
-    def detect_demand_spikes(self) -> List[Dict]:
-        """Detect sudden demand spikes in rush hours"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        anomalies = []
-        
-        try:
-            # Get recent orders (last 1 hour)
-            cursor.execute("""
-                SELECT oi.food_item_id, SUM(oi.quantity) as hourly_quantity
-                FROM order_items oi
-                WHERE oi.created_at >= DATETIME('now', '-1 hour')
-                GROUP BY oi.food_item_id
-            """)
-            
-            recent_orders = cursor.fetchall()
-            
-            # Get baseline (last 24 hours average per hour)
-            cursor.execute("""
-                SELECT COUNT(DISTINCT oi.id) / 24.0 as baseline_hourly_orders
-                FROM order_items oi
-                WHERE oi.created_at >= DATETIME('now', '-24 hours')
-            """)
-            
-            baseline_result = cursor.fetchone()
-            baseline_hourly = baseline_result['baseline_hourly_orders'] if baseline_result else 1
-            current_hourly = len(recent_orders)
-            spike_percentage = ((current_hourly - baseline_hourly) / max(1, baseline_hourly)) * 100
-            
-            if spike_percentage > 50:  # 50% spike threshold
-                anomalies.append({
-                    'anomaly_id': f"spike_{datetime.now().timestamp()}",
-                    'timestamp': datetime.now().isoformat(),
-                    'type': 'demand_spike',
-                    'spike_percentage': round(spike_percentage, 1),
-                    'orders_baseline_hourly': baseline_hourly,
-                    'orders_current_hourly': current_hourly,
-                    'affected_items': [r['food_item_id'] for r in recent_orders[:5]],
-                    'status': 'active',
-                    'recommended_action': 'expedited_production|staff_alert'
-                })
-            
-            return anomalies
-        
-        finally:
-            conn.close()
-    
-    # ===== CAPABILITY 5: SURPLUS STOCK & WASTE PREVENTION =====
-    def detect_surplus_stock(self) -> List[Dict]:
-        """Identify surplus inventory and waste prevention opportunities"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        surplus_items = []
-        
-        try:
-            stock_status = self.get_current_stock_status()
-            
-            for item in stock_status['items']:
-                # Check for over-production (produced > 20 units with low sales)
-                if item['produced_today'] > 20 and item['sold_today'] < (item['produced_today'] * 0.3):
-                    forecast = self.forecast_demand_1week(item['food_id'])
-                    
-                    surplus_items.append({
-                        'food_id': item['food_id'],
-                        'food_name': item['food_name'],
-                        'produced_today': item['produced_today'],
-                        'sold_today': item['sold_today'],
-                        'availability': item['availability'],
-                        'forecast_7day_demand': forecast['total_predicted_demand'],
-                        'waste_risk': 'high' if item['availability'] > forecast['total_predicted_demand'] else 'medium',
-                        'recommendation': 'promotional_offer|staff_usage|reduce_production'
-                    })
-            
-            return surplus_items
-        
-        finally:
-            conn.close()
-    
-    # ===== CAPABILITY 6: AUTOMATIC PURCHASE ORDER GENERATION =====
-    def generate_purchase_orders(self) -> List[Dict]:
-        """Generate automatic purchase orders for low/critical items"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        purchase_orders = []
-        
-        try:
-            stock_status = self.get_current_stock_status()
-            
-            for item in stock_status['items']:
-                if item['status'] in ['low', 'critical']:
-                    forecast = self.forecast_demand_1week(item['food_id'])
-                    
-                    # Determine priority and lead time
-                    if item['status'] == 'critical':
-                        priority = 'critical'
-                        lead_time_hours = 4
-                    else:
-                        priority = 'high'
-                        lead_time_hours = 24
-                    
-                    # Recommended production quantity based on 7-day forecast
-                    recommended_qty = max(20, int(forecast['total_predicted_demand'] * 1.2))
-                    
-                    po = {
-                        'purchase_order_id': f"PO_{item['food_id']}_{datetime.now().timestamp()}",
-                        'timestamp': datetime.now().isoformat(),
-                        'food_id': item['food_id'],
-                        'food_name': item['food_name'],
-                        'recommended_production_qty': recommended_qty,
-                        'current_availability': item['availability'],
-                        '7day_forecast': forecast['total_predicted_demand'],
-                        'priority': priority,
-                        'estimated_ready_time': (datetime.now() + timedelta(hours=lead_time_hours)).isoformat(),
-                        'status': 'pending',
-                        'target_kitchen': item['kitchen']
-                    }
-                    
-                    purchase_orders.append(po)
-            
-            return purchase_orders
-        
-        finally:
-            conn.close()
+    return knowledge
 
 
-# Initialize manager
-inventory_manager = InventoryManager()
-
-
-def run_inventory_agent_analysis():
-    """Run full inventory agent analysis with all 6 capabilities"""
-    print("\n" + "="*80)
-    print("INVENTORY MANAGEMENT AGENT - FULL ANALYSIS")
-    print("="*80)
+def query_kitchen_database(query: str, params: tuple = None) -> list:
+    """Execute a query against the main kitchen database"""
+    conn = get_main_db_connection()
+    if not conn:
+        return []
     
     try:
-        # Capability 1: Current Stock
-        print("\n[1] CURRENT STOCK MONITORING")
-        print("-" * 80)
-        stock = inventory_manager.get_current_stock_status()
-        print(f"Total items tracked: {stock['total_items']}")
-        for item in stock['items'][:5]:
-            print(f"  • {item['food_name']}: {item['current_stock']:.1f}/{item['max_capacity']} ({item['stock_percentage']:.1f}%) - {item['status'].upper()}")
-        
-        # Capability 2: Low Stock Alerts
-        print("\n[2] LOW STOCK ALERTS")
-        print("-" * 80)
-        alerts = inventory_manager.generate_low_stock_alerts()
-        if alerts:
-            for alert in alerts[:3]:
-                print(f"  🚨 {alert['severity'].upper()}: {alert['food_name']} - {alert['action']}")
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(query, params)
         else:
-            print("  ✓ All items in normal stock")
+            cursor.execute(query)
         
-        # Capability 3: Demand Forecasting
-        print("\n[3] DEMAND FORECASTING (1-WEEK)")
-        print("-" * 80)
-        if stock['items']:
-            forecast = inventory_manager.forecast_demand_1week(stock['items'][0]['food_id'])
-            print(f"  Item: {forecast['food_name']}")
-            print(f"  Daily Forecast: {forecast['daily_forecast']}")
-            print(f"  Total 7-day demand: {forecast['total_predicted_demand']:.1f} units")
-            print(f"  Days until stockout: {forecast['days_until_stockout']}")
-        
-        # Capability 4: Anomaly Detection
-        print("\n[4] ANOMALY DETECTION (DEMAND SPIKES)")
-        print("-" * 80)
-        anomalies = inventory_manager.detect_demand_spikes()
-        if anomalies:
-            for anom in anomalies:
-                print(f"  ⚡ SPIKE DETECTED: {anom['spike_percentage']:.1f}% increase")
-                print(f"    Action: {anom['recommended_action']}")
+        if query.strip().upper().startswith("SELECT"):
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
         else:
-            print("  ✓ No demand spikes detected")
-        
-        # Capability 5: Surplus & Waste
-        print("\n[5] SURPLUS STOCK & WASTE PREVENTION")
-        print("-" * 80)
-        surplus = inventory_manager.detect_surplus_stock()
-        if surplus:
-            for item in surplus[:3]:
-                print(f"  ⚠ {item['food_name']}: {item['excess_quantity']:.1f} units excess")
-                print(f"    Recommendation: {item['recommendation']}")
-        else:
-            print("  ✓ No surplus items detected")
-        
-        # Capability 6: Purchase Orders
-        print("\n[6] AUTOMATIC PURCHASE ORDER GENERATION")
-        print("-" * 80)
-        purchase_orders = inventory_manager.generate_purchase_orders()
-        if purchase_orders:
-            for po in purchase_orders[:3]:
-                print(f"  📦 Order: {po['food_name']}")
-                print(f"    Quantity: {po['quantity']} {po['unit']}")
-                print(f"    Priority: {po['priority'].upper()}")
-                print(f"    Delivery: {po['estimated_delivery']}")
-        else:
-            print("  ✓ No purchase orders needed")
-        
-        print("\n" + "="*80)
-        print("✓ INVENTORY ANALYSIS COMPLETE")
-        print("="*80 + "\n")
-        
+            conn.commit()
+            return [{"status": "success", "rows_affected": cursor.rowcount}]
     except Exception as e:
-        print(f"✗ Error: {str(e)}")
+        print(f"Error executing database query: {e}")
+        return []
+    finally:
+        conn.close()
 
 
-if __name__ == '__main__':
-    run_inventory_agent_analysis()
+def get_database_schema() -> dict:
+    """Get comprehensive database schema information"""
+    conn = get_main_db_connection()
+    if not conn:
+        return {}
+    
+    schema = {}
+    try:
+        # Get all tables
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = %s
+            ORDER BY table_name
+        """, (MYSQL_DATABASE,))
+        tables = [row['table_name'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+        
+        # Get schema for each table
+        for table_name in tables:
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable, column_default, column_key
+                FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s
+                ORDER BY ordinal_position
+            """, (MYSQL_DATABASE, table_name))
+            columns = []
+            for row in cursor.fetchall():
+                if isinstance(row, dict):
+                    columns.append({
+                        'name': row['column_name'],
+                        'type': row['data_type'],
+                        'not_null': row['is_nullable'] == 'NO',
+                        'default': row['column_default'],
+                        'pk': row['column_key'] == 'PRI'
+                    })
+                else:
+                    columns.append({
+                        'name': row[0],
+                        'type': row[1],
+                        'not_null': row[2] == 'NO',
+                        'default': row[3],
+                        'pk': row[4] == 'PRI'
+                    })
+            schema[table_name] = columns
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error retrieving database schema: {e}")
+    
+    return schema
+
+
+def get_schema_documentation() -> str:
+    """Generate readable documentation of the database schema"""
+    schema = get_database_schema()
+    
+    doc = """
+╔════════════════════════════════════════════════════════════════════════╗
+║                    DATABASE SCHEMA DOCUMENTATION                       ║
+║                          (my_db.db)                                    ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+"""
+    
+    for table_name, columns in sorted(schema.items()):
+        doc += f"\n📋 TABLE: {table_name.upper()}\n"
+        doc += "─" * 70 + "\n"
+        
+        for col in columns:
+            pk_mark = "🔑 " if col['pk'] else "   "
+            nn_mark = "[NOT NULL]" if col['not_null'] else ""
+            doc += f"{pk_mark}{col['name']:25} {col['type']:15} {nn_mark}\n"
+        
+        # Get sample data count
+        try:
+            conn = get_main_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            result = cursor.fetchone()
+            count = result[0] if isinstance(result, tuple) else result['COUNT(*)']
+            doc += f"   └─ Records: {count}\n"
+            conn.close()
+        except:
+            pass
+        
+        doc += "\n"
+    
+    return doc
+
+
+def get_table_relationships() -> str:
+    """Document foreign key relationships between tables"""
+    conn = get_main_db_connection()
+    if not conn:
+        return "No database connection"
+    
+    relationships = "\n╔════════════════════════════════════════════════════════════════════════╗\n"
+    relationships += "║                    TABLE RELATIONSHIPS (FOREIGN KEYS)                   ║\n"
+    relationships += "╚════════════════════════════════════════════════════════════════════════╝\n\n"
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = %s
+            ORDER BY table_name
+        """, (MYSQL_DATABASE,))
+        tables = [row['table_name'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+        
+        for table_name in tables:
+            cursor.execute("""
+                SELECT 
+                    constraint_name,
+                    column_name,
+                    referenced_table_name,
+                    referenced_column_name
+                FROM information_schema.key_column_usage
+                WHERE table_schema = %s 
+                    AND table_name = %s
+                    AND referenced_table_name IS NOT NULL
+            """, (MYSQL_DATABASE, table_name))
+            fks = cursor.fetchall()
+            
+            if fks:
+                relationships += f"📍 {table_name.upper()}\n"
+                for fk in fks:
+                    if isinstance(fk, dict):
+                        relationships += f"   └─ {fk['column_name']} → {fk['referenced_table_name']}.{fk['referenced_column_name']}\n"
+                    else:
+                        relationships += f"   └─ {fk[1]} → {fk[2]}.{fk[3]}\n"
+                relationships += "\n"
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error retrieving relationships: {e}")
+    
+    return relationships
+
+
+def get_schema_summary() -> dict:
+    """Get a summary of the database schema"""
+    schema = get_database_schema()
+    summary = {}
+    
+    for table_name, columns in schema.items():
+        summary[table_name] = {
+            'total_columns': len(columns),
+            'primary_keys': [c['name'] for c in columns if c['pk']],
+            'columns': [c['name'] for c in columns],
+            'column_types': {c['name']: c['type'] for c in columns}
+        }
+    
+    return summary
+
+
+def execute_database_query(query: str, params: list = None) -> dict:
+    """
+    Execute a SQL query against the kitchen database and return results.
+    
+    This function serves as a database tool for the Kitchen Agent.
+    It can execute SELECT queries (returns data) and modification queries (INSERT, UPDATE, DELETE).
+    
+    Args:
+        query (str): The SQL query to execute
+        params (tuple): Optional parameters for parameterized queries
+    
+    Returns:
+        dict: Result dictionary containing:
+            - success (bool): Whether query executed successfully
+            - data (list): Query results (for SELECT queries)
+            - rows_affected (int): Number of rows affected (for INSERT/UPDATE/DELETE)
+            - error (str): Error message if query failed
+            - query_type (str): Type of query (SELECT, INSERT, UPDATE, DELETE)
+    
+    Example:
+        # SELECT query
+        result = execute_database_query("SELECT * FROM orders WHERE status = ?", ('pending',))
+        
+        # INSERT query
+        result = execute_database_query("INSERT INTO orders (id, order_number) VALUES (?, ?)", 
+                                      ('uuid123', 'ORD-001'))
+    """
+    print(f"🔧 execute_database_query CALLED!")
+    print(f"   Query: {query[:100]}...")
+    print(f"   Params: {params}")
+    
+    conn = get_main_db_connection()
+    if not conn:
+        return {
+            'success': False,
+            'error': 'Failed to establish database connection',
+            'data': [],
+            'rows_affected': 0,
+            'query_type': 'UNKNOWN'
+        }
+    
+    try:
+        # Determine query type
+        query_upper = query.strip().upper()
+        if query_upper.startswith('SELECT'):
+            query_type = 'SELECT'
+        elif query_upper.startswith('INSERT'):
+            query_type = 'INSERT'
+        elif query_upper.startswith('UPDATE'):
+            query_type = 'UPDATE'
+        elif query_upper.startswith('DELETE'):
+            query_type = 'DELETE'
+        else:
+            query_type = 'OTHER'
+        
+        cursor = conn.cursor()
+        
+        # Execute query with optional parameters
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        
+        # Handle different query types
+        if query_type == 'SELECT':
+            results = cursor.fetchall()
+            data = [dict(row) for row in results]
+            conn.close()
+            return {
+                'success': True,
+                'data': data,
+                'rows_affected': len(data),
+                'query_type': query_type,
+                'error': None
+            }
+        else:
+            # For INSERT, UPDATE, DELETE
+            conn.commit()
+            conn.close()
+            return {
+                'success': True,
+                'data': [],
+                'rows_affected': cursor.rowcount,
+                'query_type': query_type,
+                'error': None
+            }
+    
+    except Exception as e:
+        error_msg = f"Database query error: {str(e)}"
+        print(f"❌ {error_msg}")
+        conn.close()
+        return {
+            'success': False,
+            'error': error_msg,
+            'data': [],
+            'rows_affected': 0,
+            'query_type': 'UNKNOWN'
+        }
+
+
+def db_run_query_tool(conn, query, params=None):
+    """
+    Runs a SQL query on a given SQLite connection and returns results.
+    
+    Args:
+        conn: sqlite3 connection object.
+        query: SQL query string.
+        params: Optional tuple/list of parameters for parameterized queries.
+    
+    Returns:
+        - List of result rows (as tuples)
+        - None for queries that don't return results (INSERT/UPDATE/DELETE)
+    """
+    cursor = conn.cursor()
+
+    try:
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+
+        # If it's a SELECT query → return results
+        if query.strip().lower().startswith("select"):
+            return cursor.fetchall()
+        
+        # Otherwise commit changes
+        conn.commit()
+        return None
+
+    except Exception as e:
+        print("Error executing query:", e)
+        return None
+
+
+# Create kitchen agent with agno
+# PgVector already imported at top with try/except
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+ANTHROPIC_API_KEY =  "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"
+
+# Global knowledge variable
+knowledge = None
+
+def get_knowledge():
+    """Get or create the knowledge base using MySQL/MariaDB""" 
+    global knowledge
+    
+    if knowledge is None and OPENAI_API_KEY:
+        try:
+            # Use MySQL as knowledge storage with URL-encoded password
+            encoded_password = quote_plus(MYSQL_PASSWORD)
+            mysql_url = f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}/{MYSQL_DATABASE}"
+            
+            # Note: Using MySQL for both content and vector storage
+            # MySQL 8.0+ and MariaDB 10.7+ support vector operations with plugins
+            from agno.db.mysql.mysql import MySQLDb
+            
+            db = MySQLDb(
+                db_url=mysql_url,
+                knowledge_table="knowledge_contents",
+            )
+            
+            knowledge = Knowledge(
+                name="ERP Data Analysis Knowledge Base",
+                description="Knowledge base for analyzing ERP data, business insights, and reporting",
+                contents_db=db,
+                # Using MySQL for vector storage as well
+                vector_db=PgVector(
+                    table_name="vectors",
+                    db_url=mysql_url,
+                    embedder=OpenAIEmbedder(api_key=OPENAI_API_KEY),
+                ),
+            )
+            print("✓ Knowledge base initialized with MySQL storage")
+        except Exception as e:
+            print(f"⚠️  Could not initialize knowledge base with vector storage: {e}")
+            # Try without vector DB
+            try:
+                knowledge = Knowledge(
+                    name="ERP Data Analysis Knowledge Base",
+                    description="Knowledge base for analyzing ERP data, business insights, and reporting",
+                )
+                print("✓ Knowledge base initialized without vector storage")
+            except Exception as e2:
+                print(f"⚠️  Could not initialize basic knowledge base: {e2}")
+                knowledge = None
+    
+    return knowledge
+
+# Initialize kitchen agent with error handling
+kitchen_agent = None
+try:
+    # Get knowledge base (will handle failures gracefully)
+    kb = get_knowledge()
+    
+    if Claude is None:
+        print("⚠️  Kitchen Agent initialization skipped: Claude not available")
+        kitchen_agent = None
+    elif ANTHROPIC_API_KEY is None:
+        print("⚠️  Kitchen Agent initialization skipped: ANTHROPIC_API_KEY not set")
+        kitchen_agent = None
+    else:
+        kitchen_agent = Agent(
+                name="Kitchen Agent",
+               model = Claude(
+                        # id="claude-sonnet-4-20250514",
+                        # id="claude-haiku-4-20250514",
+                        id="claude-3-5-haiku-20241022",
+                        api_key=ANTHROPIC_API_KEY
+                    ),
+                instructions=inventory_mng_instructions,
+                knowledge=kb,  # Use the knowledge base if available (can be None)
+                tools=[execute_database_query, get_kitchen_knowledge, get_database_schema, get_schema_documentation, get_table_relationships, get_schema_summary],  # Use list of functions
+                markdown=False,  # Don't wrap responses in markdown
+            )
+        print("✓ Kitchen Agent initialized successfully")
+except Exception as e:
+    print(f"⚠️  Kitchen Agent initialization failed: {str(e)}")
+    kitchen_agent = None
+
