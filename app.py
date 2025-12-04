@@ -21,6 +21,13 @@ except ImportError:
     print("⚠️  Kitchen Agent not available (optional)")
     kitchen_agent = None
 
+# Import Inventory Agent
+try:
+    from Agents.InventoryAgent import kitchen_agent as inventory_agent
+except ImportError:
+    print("⚠️  Inventory Agent not available (optional)")
+    inventory_agent = None
+
 # Import Order Monitor
 try:
     from Agents.order_monitor import start_order_monitor, stop_order_monitor, get_today_orders_count, get_today_summary
@@ -428,6 +435,67 @@ def ask_kitchen_agent(query: str, context: dict = None) -> dict:
             'success': False,
             'error': str(e),
             'message': 'Failed to process kitchen agent request',
+            'query': query
+        }
+
+def ask_inventory_agent(query: str, context: dict = None) -> dict:
+    """
+    Ask the inventory agent a question about sustainability metrics, stock levels, waste analysis, etc.
+    
+    Args:
+        query (str): The question or request to ask the inventory agent
+        context (dict): Optional context data (date, kitchen_id, metrics type, etc.)
+    
+    Returns:
+        dict: Response from the agent with sustainability insights and recommendations
+    
+    Example:
+        ask_inventory_agent("What's the sustainability report for yesterday?")
+        ask_inventory_agent("Show me real-time store-level metrics", {"kitchen_id": "KITCHEN_001"})
+        ask_inventory_agent("Which menu items have high waste today?")
+    """
+    if not inventory_agent:
+        return {
+            'success': False,
+            'error': 'Inventory Agent is not available',
+            'message': 'The inventory agent service is not configured'
+        }
+    
+    try:
+        # Build the prompt with context if provided
+        prompt = query
+        
+        if context:
+            prompt += "\n\nContext Information:"
+            if 'date' in context:
+                prompt += f"\n- Analysis Date: {context['date']}"
+            if 'kitchen_id' in context:
+                prompt += f"\n- Kitchen ID: {context['kitchen_id']}"
+            if 'metric_type' in context:
+                prompt += f"\n- Metric Type: {context['metric_type']}"
+            if 'include_levers' in context and context['include_levers']:
+                prompt += f"\n- Include Operational Levers: Yes (menu mix, production, staffing)"
+            if 'time_period' in context:
+                prompt += f"\n- Time Period: {context['time_period']}"
+            if 'notes' in context:
+                prompt += f"\n- Additional Notes: {context['notes']}"
+        
+        # Run the agent
+        response = inventory_agent.run(prompt)
+        
+        return {
+            'success': True,
+            'message': str(response),
+            'query': query,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    except Exception as e:
+        print(f"Error asking inventory agent: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to process inventory agent request',
             'query': query
         }
 
@@ -2600,6 +2668,221 @@ def kitchen_agent_suggest():
     """
     
     response = ask_kitchen_agent(prompt, {'kitchen_stats': stats})
+    
+    return jsonify(response)
+
+
+# ============================================================================
+# INVENTORY AGENT ENDPOINTS - Sustainability & Inventory Management
+# ============================================================================
+
+@app.route('/api/inventory/ask', methods=['POST'])
+def inventory_agent_ask():
+    """
+    Ask the inventory agent a general question about stock, sustainability, forecasting, etc.
+    
+    Request JSON:
+    {
+        "query": "What's the stock status for Chicken Teriyaki?",
+        "kitchen_id": "KITCHEN_001" (optional),
+        "date": "2025-12-03" (optional),
+        "include_context": true (optional)
+    }
+    
+    Response:
+    {
+        "success": true,
+        "message": "Agent response with insights and recommendations",
+        "query": "...",
+        "timestamp": "ISO timestamp"
+    }
+    """
+    data = request.get_json()
+    query = data.get('query')
+    
+    if not query:
+        return jsonify({'error': 'Query is required'}), 400
+    
+    # Build context
+    context = {}
+    if data.get('kitchen_id'):
+        context['kitchen_id'] = data.get('kitchen_id')
+    if data.get('date'):
+        context['date'] = data.get('date')
+    if data.get('metric_type'):
+        context['metric_type'] = data.get('metric_type')
+    if data.get('notes'):
+        context['notes'] = data.get('notes')
+    
+    response = ask_inventory_agent(query, context if context else None)
+    return jsonify(response)
+
+
+@app.route('/api/inventory/sustainability-report', methods=['POST'])
+def inventory_sustainability_report():
+    """
+    Get comprehensive sustainability report for previous day operations.
+    Includes: Food Waste, Energy per Order, Idle Capacity %, On-Time Orders %
+    
+    Request JSON:
+    {
+        "date": "2025-12-03" (optional, defaults to yesterday),
+        "kitchen_id": "KITCHEN_001" (optional),
+        "include_recommendations": true (optional, default true)
+    }
+    
+    Response:
+    {
+        "success": true,
+        "report_type": "Previous Day Sustainability Report",
+        "metrics": {
+            "food_waste": {...},
+            "energy_per_order": {...},
+            "idle_capacity": {...},
+            "on_time_orders": {...}
+        },
+        "summary": {
+            "overall_sustainability_score": 72.5,
+            "key_insight": "...",
+            "top_3_actions": [...],
+            "financial_impact": {...}
+        },
+        "timestamp": "ISO timestamp"
+    }
+    """
+    data = request.get_json() or {}
+    
+    # Prepare query for the sustainability report
+    report_date = data.get('date') or 'yesterday'
+    kitchen_filter = ""
+    if data.get('kitchen_id'):
+        kitchen_filter = f" for kitchen {data.get('kitchen_id')}"
+    
+    query = f"""Generate a comprehensive Previous Day Sustainability Report for {report_date}{kitchen_filter}.
+    
+Provide detailed analysis of these 4 metrics:
+1. Food Waste (kg) - Target < 5kg: Compare actual vs target, identify root causes
+2. Energy per Order (kWh) - Target < 0.8 kWh: Energy consumption analysis and efficiency
+3. Idle Cooking Capacity (%) - Target < 20%: Equipment utilization and underutilization
+4. On-Time Orders (%) - Target > 90%: Service speed and fulfillment performance
+
+For each metric:
+- Show actual value vs target
+- Classify status: Needs Improvement, Close to Target, Above Ideal, Promo Potential
+- Identify root causes and trends
+- Provide specific, actionable recommendations
+- Include financial impact (cost of waste, excess energy, etc.)
+
+End with Executive Summary including overall sustainability score and top 3 actions."""
+    
+    context = {
+        'date': report_date,
+        'metric_type': 'all_sustainability_metrics'
+    }
+    if data.get('kitchen_id'):
+        context['kitchen_id'] = data.get('kitchen_id')
+    
+    response = ask_inventory_agent(query, context)
+    response['report_type'] = 'Previous Day Sustainability Report'
+    response['report_date'] = report_date
+    
+    return jsonify(response)
+
+
+@app.route('/api/inventory/store-sustainability', methods=['POST'])
+def inventory_store_sustainability():
+    """
+    Get real-time store-level sustainability dashboard with operational levers.
+    Shows current metrics and how menu mix, production schedule, and staffing 
+    allocation impact sustainability metrics WITHIN THIS SHIFT.
+    
+    Request JSON:
+    {
+        "kitchen_id": "KITCHEN_001" (optional),
+        "time_period": "today_so_far" or "last_2_hours" or "current_shift" (optional),
+        "include_levers": true (optional, default true)
+    }
+    
+    Response:
+    {
+        "success": true,
+        "view_type": "Store-Level Sustainability Dashboard",
+        "current_metrics": {
+            "food_waste_kg_so_far": 3.2,
+            "projected_daily_waste_kg": 6.8,
+            "energy_per_order_so_far": 0.82,
+            "idle_capacity_pct": 22.5,
+            "on_time_orders_pct": 89.2
+        },
+        "operational_levers": {
+            "menu_mix": {...},
+            "production_schedule": {...},
+            "staffing_allocation": {...}
+        },
+        "integrated_insights": {
+            "key_finding": "...",
+            "actions_for_manager_now": [...],
+            "expected_outcomes": [...]
+        },
+        "timestamp": "ISO timestamp"
+    }
+    """
+    data = request.get_json() or {}
+    
+    time_period = data.get('time_period', 'today_so_far')
+    kitchen_filter = ""
+    if data.get('kitchen_id'):
+        kitchen_filter = f" for kitchen {data.get('kitchen_id')}"
+    
+    query = f"""Generate a Store-Level Sustainability Dashboard for {time_period}{kitchen_filter}.
+    
+Provide REAL-TIME insights showing:
+
+1. CURRENT METRICS (TODAY SO FAR):
+   - Food Waste (kg) and projected daily total
+   - Energy per Order (kWh)
+   - Idle Cooking Capacity (%)
+   - On-Time Orders (%)
+
+2. OPERATIONAL LEVERS (Real-time impact analysis):
+
+   A) MENU MIX - Which items to promote/reduce TODAY?
+      - Show top 3 waste items with highest waste % and promotion recommendations
+      - Show top 3 best-selling items (low waste, high sell-through) to feature
+      - Include urgency level (HIGH: implement now, MEDIUM: within 30 min, LOW: consider for later)
+      - Quantify expected waste reduction if actions taken
+   
+   B) PRODUCTION SCHEDULE - When/how to produce for optimal waste & energy?
+      - Hourly breakdown: produced vs sold vs waste vs energy consumption
+      - Identify peak efficiency hours and low-efficiency hours
+      - Recommend production timing adjustments to reduce waste
+      - Show forecast for next hour's demand
+   
+   C) STAFFING ALLOCATION - How does staffing impact performance?
+      - Show staffing level by station (main kitchen, cold prep, dessert, etc.)
+      - Current vs scheduled staff counts
+      - Average prep times and on-time % by station
+      - Recommendation: Add/reduce staff based on prep time and on-time metrics
+
+3. INTEGRATED INSIGHTS:
+   - Key finding: What's the #1 thing affecting sustainability RIGHT NOW?
+   - Actions for manager: 3-5 immediate, specific, prioritized actions
+   - Expected outcomes: What metrics will improve if actions taken?
+   - Time frame: Which actions are HIGH urgency (now), MEDIUM (within 30 min), LOW (by end of shift)
+
+Focus on SHIFT-LEVEL actions (not month-end reports). Manager should be able to act within minutes."""
+    
+    context = {
+        'time_period': time_period,
+        'include_levers': data.get('include_levers', True),
+        'metric_type': 'real_time_operational'
+    }
+    if data.get('kitchen_id'):
+        context['kitchen_id'] = data.get('kitchen_id')
+    
+    response = ask_inventory_agent(query, context)
+    response['view_type'] = 'Store-Level Sustainability Dashboard'
+    response['time_period'] = time_period
     
     return jsonify(response)
 
